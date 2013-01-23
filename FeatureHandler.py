@@ -2,8 +2,14 @@
 # OMERO.tables
 
 from itertools import izip
-from TableConnection import FeatureTableConnection
+from TableConnection import FeatureTableConnection, TableConnectionError
 from TableConnection import TableConnection
+
+
+######################################################################
+# Constants for OMERO
+######################################################################
+NAMESPACE = '/testing/pychrm'
 
 
 ######################################################################
@@ -50,28 +56,46 @@ def featureSizes(names):
     return featSizes
 
 
-def createTable(features):
+def connect(client = None, tableName = None):
+    user = 'test1'
+    passwd = 'test1'
+    if not tableName:
+        tableName = '/test.h5'
+    host = 'localhost'
+
+    if client:
+        tc = FeatureTableConnection(client=client, tableName=tableName)
+    else:
+        tc = FeatureTableConnection(user, passwd, host, tableName=tableName)
+    return tc
+
+
+def createTable(tc, featureNames):
     """
     Initialise an OMERO.table for storing features
     @param features Either a mapping of feature names to feature sizes, or a
     list of single value feature names which can be parsed using
     parseFeatureName
     """
-    user = 'test1'
-    passwd = 'test1'
-    tableName = '/test.h5'
-    host = 'localhost'
-
-    tc = FeatureTableConnection(user, passwd, host, tableName)
-
     # Unparsed list or dict?
-    if not hasattr(features, 'keys'):
-        features = featureSizes(features)
+    if hasattr(featureNames, 'keys'):
+        features = featureNames
+    else:
+        features = featureSizes(featureNames)
 
     colNames = sorted(features.keys())
     desc = [(name, features[name]) for name in colNames]
     tc.createNewTable('id', desc)
     return tc
+
+
+def openTable(tc, tableName = None, tableId = None):
+    try:
+        tc.openTable(tableName=tableName, tableId=tableId)
+        return True
+    except TableConnectionError as e:
+        print "No table found: %s" % e
+        return False
 
 
 def isTableCompatible(tc, features):
