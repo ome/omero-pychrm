@@ -128,10 +128,9 @@ def saveFeatures(tc, id, features):
     for (name, value) in izip(features.names, features.values):
         ft, idx = parseFeatureName(name)
         col = colMap[ft]
-        if col.values:
-            col.values[0][idx] = value
-        else:
+        if not col.values:
             col.values = [[float('nan')] * col.size]
+        col.values[0][idx] = value
 
     tc.addData(cols)
 
