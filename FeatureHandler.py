@@ -73,7 +73,7 @@ def connect(client = None, tableName = None):
 def createTable(tc, featureNames):
     """
     Initialise an OMERO.table for storing features
-    @param features Either a mapping of feature names to feature sizes, or a
+    @param featureNames Either a mapping of feature names to feature sizes, or a
     list of single value feature names which can be parsed using
     parseFeatureName
     """
@@ -142,8 +142,6 @@ def loadFeatures(tc, id):
     features and value are the corresponding feature values
     """
     r = tc.getRowId(id)
-    assert(len(r) == 1)
-    r = r[0]
     # Skip the first id column
     colNumbers = range(1, len(tc.getHeaders()))
     cols = tc.readArray(colNumbers, r, r + 1)
