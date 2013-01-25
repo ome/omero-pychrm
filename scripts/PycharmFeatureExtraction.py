@@ -67,7 +67,7 @@ def getDatasetTableFile(tc, tableName, d):
     return None
 
 
-def extractFeatures(tc, ds, imageId = None, im = None):
+def extractFeatures(tc, ds, newOnly, imageId = None, im = None):
     message = ''
 
     # dataset must be explicitly provided because an image can be linked to
@@ -82,6 +82,15 @@ def extractFeatures(tc, ds, imageId = None, im = None):
     else:
         imageId = im.getId()
 
+    tid = getDatasetTableFile(tc, tc.tableName, ds)
+    if tid:
+        if not FeatureHandler.openTable(tc, tableId=tid):
+            return message + '\nERROR: Table not opened\n'
+        message += 'Opened table id:%d\n' % tid
+
+        if newOnly and FeatureHandler.tableContainsId(tc, imageId):
+            return message + 'Image id:%d features already in table' % imageId
+
     # Pychrm only takes a tiff, so write an OME-TIFF to a temporary file
     with NamedTemporaryFile(suffix='.tif', delete=False) as tmpf:
         tmpf.write(im.exportOmeTiff())
@@ -92,12 +101,7 @@ def extractFeatures(tc, ds, imageId = None, im = None):
     tmpf.unlink(tmpf.name)
 
     # Save the features to a table
-    tid = getDatasetTableFile(tc, tc.tableName, ds)
-    if tid:
-        if not FeatureHandler.openTable(tc, tableId=tid):
-            return message + '\nERROR: Table not opened'
-        message += 'Opened table id:%d\n' % tid
-    else:
+    if not tid:
         FeatureHandler.createTable(tc, ft.names)
         message += 'Created new table\n'
         message += addFileAnnotationToDataset(tc, tc.table, ds)
@@ -113,6 +117,7 @@ def processImages(client, scriptParams):
     dataType = scriptParams['Data_Type']
     ids = scriptParams['IDs']
     contextName = scriptParams['Context_Name']
+    newOnly = scriptParams['New_Images_Only']
 
     tableName = '/Pychrm/' + contextName + '/SmallFeatureSet.h5'
     message += 'tableName:' + tableName + '\n'
@@ -132,8 +137,9 @@ def processImages(client, scriptParams):
         for d in datasets:
             message += 'Processing dataset id:%d\n' % d.getId()
             for image in d.listChildren():
-                message += '\tProcessing image id:%d\n' % image.getId()
-                message += extractFeatures(tc, d, im = image) + '\n'
+                message += 'Processing image id:%d\n' % image.getId()
+                msg = extractFeatures(tc, d, newOnly, im=image)
+                message += msg + '\n'
 
     finally:
         tc.closeTable()
@@ -159,9 +165,14 @@ def runScript():
             description='List of Dataset IDs or Image IDs').ofType(rlong(0)),
 
         scripts.String(
-            'Context_Name', optional=False, grouping='1',
+            'Context_Name', optional=False, grouping='2',
             description='The name of the classification context.',
             default='Example'),
+
+        scripts.Bool(
+            'New_Images_Only', optional=False, grouping='3',
+            description='If features already exist for an image do not recalculate.',
+            default=True),
 
         version = '0.0.1',
         authors = ['Simon Li', 'OME Team'],

@@ -115,6 +115,13 @@ def isTableCompatible(tc, features):
     return True
 
 
+def tableContainsId(tc, id):
+    """
+    Check whether this ID is already present in the table
+    """
+    return tc.getRowId(id) is not None
+
+
 def saveFeatures(tc, id, features):
     """
     Save the features to a table
