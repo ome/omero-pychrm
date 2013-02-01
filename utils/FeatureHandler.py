@@ -163,29 +163,32 @@ def loadFeatures(tc, id):
 
 
 ######################################################################
-# Image class handling
+# Save a classifier
 ######################################################################
 
 
-def createImageClassTable():
+def createClassifierTables(tc1, tc2, featureNames):
     """
-    Initialise an OMERO.table for storing image classification labels
-    and related data
+    Create a pair of OMERO.tables for storing the state of a trained image
+    classifier. The first table stores the training samples with reduced
+    features, the second stores a list of weights and feature names
     """
-    user = 'test1'
-    passwd = 'test1'
-    tableName = '/test-imageClass.h5'
-    host = 'localhost'
-
-    tc = TableConnection(user, passwd, host, tableName)
-
-    schema = [
+    schema1 = [
         LongColumn('id'),
-        LongColumn('training label'),
-        LongColumn('predicted label'),
+        LongColumn('label'),
+        DoubleArrayColumn('features', '', len(featureNames)),
         ]
-    tc.newTable(schema)
-    return tc
+    tc1.newTable(schema1)
+
+    schema2 = [
+        StringColumn('featurename', '', 1024),
+        DoubleColumn('weight'),
+        ]
+    tc2.newTable(schema2)
+
+    
+
+    return tc1, tc2
 
 
 

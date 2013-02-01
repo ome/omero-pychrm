@@ -9,7 +9,7 @@ from datetime import datetime
 
 import sys
 basedir = '/Users/simon/work'
-for p in ['/omero-pychrm',
+for p in ['/omero-pychrm/utils',
           '/wndchrm/pychrm/trunk/build/lib.macosx-10.8-x86_64-2.7/']:
     if basedir + p not in sys.path:
         sys.path.append(basedir + p)
@@ -101,6 +101,32 @@ def createWeights(tcIn, tcOut, datasets):
         FeatureHandler.createTable(tcOut, weights.names)
         message += 'Created new table\n'
         #message += addFileAnnotationToDataset(tc, tc.table, ds)
+
+    FeatureHandler.saveFeatures(tcOut, 0, weights)
+    return trainFts, weights, message + 'Saved classifier weights\n'
+
+
+def createAndSaveWeights(tcIn, tcOut1, tcOut2, datasets):
+    # Build the classifier (basically a set of weights)
+    # Store the classifier (weights, and also all training samples since this
+    # uses nearest neighbour)
+    message = ''
+    trainFts = pychrm.FeatureSet.FeatureSet_Discrete()
+
+    classId = 0
+    for ds in datasets:
+        message += 'Processing dataset id:%d\n' % ds.getId()
+        message += addToFeatureSet(tcIn, ds, trainFts, classId)
+        classId += 1
+
+    tmp = trainFts.ContiguousDataMatrix()
+    weights = pychrm.FeatureSet.FisherFeatureWeights.NewFromFeatureSet(trainFts)
+
+    #if not FeatureHandler.openTable(tcOut, tableName=tcOut.tableName):
+    if not FeatureHandler.openTable(tcOut):
+        FeatureHandler.createClassifierTables(tc1, tc2, featureNamesTODO)
+        message += 'Created new table\n'
+        #message += addFileAnnotationToProject(tc, tc.table, ds)
 
     FeatureHandler.saveFeatures(tcOut, 0, weights)
     return trainFts, weights, message + 'Saved classifier weights\n'
