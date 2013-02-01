@@ -121,6 +121,32 @@ def reduceFeatures(fts, weights):
 
 
 
+def createAndSaveWeights(tcIn, tcOut1, tcOut2, datasets):
+    # Build the classifier (basically a set of weights)
+    # Store the classifier (weights, and also all training samples since this
+    # uses nearest neighbour)
+    message = ''
+    trainFts = pychrm.FeatureSet.FeatureSet_Discrete()
+
+    classId = 0
+    for ds in datasets:
+        message += 'Processing dataset id:%d\n' % ds.getId()
+        message += addToFeatureSet(tcIn, ds, trainFts, classId)
+        classId += 1
+
+    tmp = trainFts.ContiguousDataMatrix()
+    weights = pychrm.FeatureSet.FisherFeatureWeights.NewFromFeatureSet(trainFts)
+
+    #if not FeatureHandler.openTable(tcOut, tableName=tcOut.tableName):
+    if not FeatureHandler.openTable(tcOut):
+        FeatureHandler.createClassifierTables(tc1, tc2, featureNamesTODO)
+        message += 'Created new table\n'
+        #message += addFileAnnotationToProject(tc, tc.table, ds)
+
+    FeatureHandler.saveFeatures(tcOut, 0, weights)
+    return trainFts, weights, message + 'Saved classifier weights\n'
+
+
 def predictDataset(tcIn, trainFts, predDs, weights):
     message = ''
     predictFts = pychrm.FeatureSet.FeatureSet_Discrete()
