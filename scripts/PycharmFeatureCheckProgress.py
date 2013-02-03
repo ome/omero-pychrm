@@ -9,8 +9,8 @@ from datetime import datetime
 
 
 import sys, os
-basedir = os.getenv('HOME') + '/work'
-for p in ['/omero-pychrm/utils']:
+basedir = os.getenv('HOME') + '/work/omero-pychrm'
+for p in ['/utils']:
     if basedir + p not in sys.path:
         sys.path.append(basedir + p)
 import FeatureHandler

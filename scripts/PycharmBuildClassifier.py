@@ -8,9 +8,8 @@ from datetime import datetime
 
 
 import sys, os
-basedir = os.getenv('HOME') + '/work'
-for p in ['/omero-pychrm/utils',
-          '/wndchrm/pychrm/trunk/build/lib.macosx-10.8-x86_64-2.7/']:
+basedir = os.getenv('HOME') + '/work/omero-pychrm'
+for p in ['/utils', '/pychrm-lib']:
     if basedir + p not in sys.path:
         sys.path.append(basedir + p)
 import FeatureHandler
