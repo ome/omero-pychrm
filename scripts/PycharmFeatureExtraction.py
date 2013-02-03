@@ -9,8 +9,8 @@ from datetime import datetime
 from tempfile import NamedTemporaryFile
 
 
-import sys
-basedir = '/Users/simon/work'
+import sys, os
+basedir = os.getenv('HOME') + '/work'
 for p in ['/omero-pychrm/utils',
           '/wndchrm/pychrm/trunk/build/lib.macosx-10.8-x86_64-2.7/']:
     if basedir + p not in sys.path:
