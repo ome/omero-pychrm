@@ -8,9 +8,9 @@ from omero.gateway import FileAnnotationWrapper, ImageWrapper
 from datetime import datetime
 
 
-import sys
-basedir = '/Users/simon/work'
-for p in ['/omero-pychrm/utils']:
+import sys, os
+basedir = os.getenv('HOME') + '/work/omero-pychrm'
+for p in ['/utils']:
     if basedir + p not in sys.path:
         sys.path.append(basedir + p)
 import FeatureHandler
