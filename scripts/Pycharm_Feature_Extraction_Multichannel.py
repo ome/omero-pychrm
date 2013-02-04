@@ -78,22 +78,9 @@ def getDatasetTableFile(tc, tableName, d):
 def getTifs(im):
     sz = (im.getSizeX(), im.getSizeY())
     nch = im.getSizeC()
-    pixelsType = im.getPixelsType()
-    if pixelsType == 'uint8':
-        mode = 'L'
-    elif pixelsType == 'uint16':
-        mode = 'I;16'
-    else:
-        raise omero.ServerError('Unknown pixels type: %s' % pixelsType)
-
-    tifs = [Image.new(mode, sz) for n in xrange(nch)]
-    pixels = [tif.load() for tif in tifs]
-
-    for y in xrange(sz[1]):
-        r = im.getRow(0, 0, y)
-        for c in xrange(nch):
-            for x in xrange(sz[0]):
-                pixels[c][x, y] = r[c][x]
+    zctlist = [(0, ch, 0) for ch in xrange(im.getSizeC())]
+    planes = im.getPrimaryPixels().getPlanes(zctlist)
+    tifs = [Image.fromarray(p) for p in planes]
 
     tmpfs = []
     for tif in tifs:
@@ -102,8 +89,6 @@ def getTifs(im):
         tmpfs.append(tmpf)
 
     return tmpfs
-
-
 
 
 def extractFeatures(tc, ds, newOnly, chNames, imageId = None, im = None):
