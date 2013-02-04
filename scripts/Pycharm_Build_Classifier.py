@@ -101,7 +101,8 @@ def createWeights(tcIn, tcOut, datasets):
         message += 'Created new table\n'
         #message += addFileAnnotationToDataset(tc, tc.table, ds)
 
-    FeatureHandler.saveFeatures(tcOut, 0, weights)
+    message += 'WARNING: Saving features not implemented\n'
+    #FeatureHandler.saveFeatures(tcOut, 0, weights)
     return trainFts, weights, message + 'Saved classifier weights\n'
 
 
