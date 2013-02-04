@@ -98,7 +98,7 @@ def runScript():
     """
 
     client = scripts.client(
-        'PycharmFeatureExtraction.py',
+        'Pycharm_Feature_Check_Progress.py',
         'Extract the small Pychrm feature set from images',
 
         scripts.String('Data_Type', optional=False, grouping='1',

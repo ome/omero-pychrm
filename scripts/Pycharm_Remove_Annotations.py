@@ -51,7 +51,7 @@ def runScript():
 
     dataTypes = [rstring('Dataset'),rstring('Image')]
     client = scripts.client(
-        'PycharmRemoveAnnotations.py',
+        'Pycharm_Remove_Annotations.py',
         'Remove Pychrm annotations from Datasets and/or Images',
 
         scripts.String('Data_Type', optional=False, grouping='1',
