@@ -4,6 +4,7 @@ from omero import scripts
 from omero.util import script_utils
 from omero.rtypes import rstring, rlong
 from omero.gateway import BlitzGateway
+from omero.gateway import FileAnnotationWrapper, CommentAnnotationWrapper
 from datetime import datetime
 
 import sys, os
@@ -14,11 +15,21 @@ for p in ['/utils']:
 import FeatureHandler
 
 
-def removeAnnotations(obj):
+def removeAnnotations(conn, obj, rmTables, rmComments):
     namespace = FeatureHandler.NAMESPACE
-    obj.removeAnnotations(namespace)
-    return 'Removed annotations from %s id:%d\n' % \
-        (obj.OMERO_CLASS, obj.getId())
+    rmIds = []
+    for ann in obj.listAnnotations():
+        if ann.getNs() != namespace:
+            continue
+        if rmTables and isinstance(ann, FileAnnotationWrapper):
+            rmIds.append(ann.getId())
+        if rmComments and isinstance(ann, CommentAnnotationWrapper):
+            rmIds.append(ann.getId())
+
+    if rmIds:
+        conn.deleteObjects('Annotation', rmIds)
+    return 'Removed annotations:%s from %s id:%d\n' % \
+        (rmIds, obj.OMERO_CLASS, obj.getId())
 
 
 def processObjects(client, scriptParams):
@@ -27,6 +38,8 @@ def processObjects(client, scriptParams):
     # for params with default values, we can get the value directly
     dataType = scriptParams['Data_Type']
     ids = scriptParams['IDs']
+    rmTables = scriptParams['Remove_tables']
+    rmComments = scriptParams['Remove_comments']
 
     # Get the images or datasets
     conn = BlitzGateway(client_obj=client)
@@ -36,10 +49,10 @@ def processObjects(client, scriptParams):
         return None, message
 
     for o in objects:
-        message += removeAnnotations(o)
+        message += removeAnnotations(conn, o, rmTables, rmComments)
         if dataType == 'Dataset':
             for im in o.listChildren():
-                message += removeAnnotations(im)
+                message += removeAnnotations(conn, im, rmTables, rmComments)
 
     return message
 
@@ -52,7 +65,7 @@ def runScript():
     dataTypes = [rstring('Dataset'),rstring('Image')]
     client = scripts.client(
         'Pycharm_Remove_Annotations.py',
-        'Remove Pychrm annotations from Datasets and/or Images',
+        'Remove Pychrm annotations from Datasets and contained Images, or just Images',
 
         scripts.String('Data_Type', optional=False, grouping='1',
                        description='The data you want to work with.',
@@ -61,6 +74,14 @@ def runScript():
         scripts.List(
             'IDs', optional=False, grouping='1',
             description='List of Dataset IDs or Image IDs').ofType(rlong(0)),
+
+        scripts.Bool(
+            'Remove_tables', optional=False, grouping='1',
+            description='Remove table (HDF5 file) annotations', default=False),
+
+        scripts.Bool(
+            'Remove_comments', optional=False, grouping='1',
+            description='Remove comments', default=False),
 
         version = '0.0.1',
         authors = ['Simon Li', 'OME Team'],
