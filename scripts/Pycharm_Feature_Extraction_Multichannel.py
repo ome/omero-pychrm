@@ -127,7 +127,7 @@ def extractFeatures(tc, ds, newOnly, chNames, imageId = None, im = None):
         ft = Signatures.SmallFeatureSet(tmpf.name)
         ft.names = ['[%s] %s' % (ch, n) for n in ft.names]
         ft.source_path = im.getName()
-        #tmpf.unlink(tmpf.name)
+        tmpf.unlink(tmpf.name)
         if not ftall:
             ftall = ft
         else:
