@@ -230,6 +230,9 @@ def trainAndPredict(client, scriptParams):
             message += msg
             addPredictionsAsComments(tcOut, pred, ds.getId(), commentImages)
 
+    except:
+        print message
+        raise
     finally:
         tcIn.closeTable()
         tcOut.closeTable()
@@ -283,6 +286,7 @@ def runScript():
     try:
         startTime = datetime.now()
         session = client.getSession()
+        client.enableKeepAlive(60)
         scriptParams = {}
 
         # process the list of args above.

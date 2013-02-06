@@ -140,6 +140,9 @@ def processImages(client, scriptParams):
                 msg = extractFeatures(tc, d, newOnly, im=image)
                 message += msg + '\n'
 
+    except:
+        print message
+        raise
     finally:
         tc.closeTable()
 
@@ -182,6 +185,7 @@ def runScript():
     try:
         startTime = datetime.now()
         session = client.getSession()
+        client.enableKeepAlive(60)
         scriptParams = {}
 
         # process the list of args above.
