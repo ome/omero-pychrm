@@ -22,7 +22,8 @@ def process(client, scriptParams):
     prefix += '-' + dstr + '-'
 
     n = 0
-    with NamedTemporaryFile(prefix=prefix, suffix='.txt', delete=False) as tmpf:
+    with NamedTemporaryFile(
+        prefix=prefix, suffix='.txt', delete=False, bufsize=1) as tmpf:
         while n < numMsgs or numMsgs == 0:
             dstr = datetime.strftime(datetime.utcnow(),'%Y-%m-%d %H:%M:%S Z')
             tmpf.write('%d: %s\n' % (n, dstr))
