@@ -66,7 +66,7 @@ def runScript():
     try:
         startTime = datetime.now()
         session = client.getSession()
-        client.enableKeepAlive(60)
+        #client.enableKeepAlive(60)
         scriptParams = {}
 
         # process the list of args above.
