@@ -5,7 +5,7 @@ import omero.model
 from omero.rtypes import rstring, rlong
 from omero.gateway import DatasetWrapper, FileAnnotationWrapper, ImageWrapper
 from datetime import datetime
-
+from math import ceil
 
 import sys, os
 basedir = os.getenv('HOME') + '/work/omero-pychrm'
@@ -81,7 +81,7 @@ def getDatasetTableFile(tc, tableName, d):
     return None
 
 
-def createWeights(tcIn, tcOut, datasets):
+def createWeights(tcIn, tcOut, datasets, featureThreshold):
     # Build the classifier (basically a set of weights)
     message = ''
     trainFts = pychrm.FeatureSet.FeatureSet_Discrete()
@@ -95,14 +95,30 @@ def createWeights(tcIn, tcOut, datasets):
     tmp = trainFts.ContiguousDataMatrix()
     weights = pychrm.FeatureSet.FisherFeatureWeights.NewFromFeatureSet(trainFts)
 
-    #if not FeatureHandler.openTable(tcOut, tableName=tcOut.tableName):
-    if not FeatureHandler.openTable(tcOut):
-        FeatureHandler.createTable(tcOut, weights.names)
-        message += 'Created new table\n'
-        #message += addFileAnnotationToDataset(tc, tc.table, ds)
+    if featureThreshold < 1.0:
+        nFeatures = ceil(len(weights.names) * featureThreshold)
+        message += 'Selecting top %d features\n' % nFeatures
+        weights = weights.Threshold(nFeatures)
+        trainFts = reduceFeatures(trainFts, weights)
 
-    FeatureHandler.saveFeatures(tcOut, 0, weights)
-    return trainFts, weights, message + 'Saved classifier weights\n'
+    #if not FeatureHandler.openTable(tcOut, tableName=tcOut.tableName):
+    #if not FeatureHandler.openTable(tcOut):
+    #    FeatureHandler.createTable(tcOut, weights.names)
+    #    message += 'Created new table\n'
+    #    #message += addFileAnnotationToDataset(tc, tc.table, ds)
+
+    #message += 'Saved classifier weights\n'
+    message += 'WARNING: Saving features not implemented\n'
+    #FeatureHandler.saveFeatures(tcOut, 0, weights)
+    return trainFts, weights, message
+
+
+def reduceFeatures(fts, weights):
+    if fts.source_path is None:
+        fts.source_path = ''
+    ftsr = fts.FeatureReduce(weights.names)
+    return ftsr
+
 
 
 def createAndSaveWeights(tcIn, tcOut1, tcOut2, datasets):
@@ -136,7 +152,9 @@ def predictDataset(tcIn, trainFts, predDs, weights):
     predictFts = pychrm.FeatureSet.FeatureSet_Discrete()
     classId = 0
     message += addToFeatureSet(tcIn, predDs, predictFts, classId)
-    tmp = trainFts.ContiguousDataMatrix()
+    tmp = predictFts.ContiguousDataMatrix()
+
+    predictFts = reduceFeatures(predictFts, weights)
 
     pred = pychrm.FeatureSet.DiscreteBatchClassificationResult.New(
         trainFts, predictFts, weights)
@@ -211,6 +229,7 @@ def trainAndPredict(client, scriptParams):
     commentImages = scriptParams['Comment_images']
 
     contextName = scriptParams['Context_Name']
+    featureThreshold = scriptParams['Features_threshold'] / 100.0
 
     tableNameIn = '/Pychrm/' + contextName + '/SmallFeatureSet.h5'
     tableNameOut = '/Pychrm/' + contextName + '/Weights.h5'
@@ -223,7 +242,8 @@ def trainAndPredict(client, scriptParams):
         # Training
         message += 'Training classifier\n'
         trainDatasets = tcIn.conn.getObjects(dataType, trainIds)
-        trainFts, weights, msg = createWeights(tcIn, tcOut, trainDatasets)
+        trainFts, weights, msg = createWeights(
+            tcIn, tcOut, trainDatasets, featureThreshold)
         message += msg
 
         # Predict
@@ -236,6 +256,9 @@ def trainAndPredict(client, scriptParams):
             message += msg
             addPredictionsAsComments(tcOut, pred, ds.getId(), commentImages)
 
+    except:
+        print message
+        raise
     finally:
         tcIn.closeTable()
         tcOut.closeTable()
@@ -249,7 +272,7 @@ def runScript():
     """
 
     client = scripts.client(
-        'PycharmBuildClassifier.py',
+        'Pycharm_Build_Classifier.py',
         'Build a classifier from features calculated over two or more ' +
         'datasets, each dataset represents a different class',
 
@@ -267,12 +290,18 @@ def runScript():
 
         scripts.Bool(
             'Comment_images', optional=False, grouping='1',
-            description='Add predictions as image comments'),
+            description='Add predictions as image comments', default=False),
 
         scripts.String(
             'Context_Name', optional=False, grouping='1',
             description='The name of the classification context.',
             default='Example'),
+
+        scripts.Long(
+            'Features_threshold', optional=False, grouping='2',
+            description='The proportion of features to keep (%)\n' + \
+                '(Should be a Double but doesn\'t seem to work)',
+            default=100),
 
         version = '0.0.1',
         authors = ['Simon Li', 'OME Team'],
@@ -283,6 +312,7 @@ def runScript():
     try:
         startTime = datetime.now()
         session = client.getSession()
+        client.enableKeepAlive(60)
         scriptParams = {}
 
         # process the list of args above.

@@ -6,6 +6,7 @@ import omero.model
 from omero.rtypes import rstring, rlong
 from omero.gateway import FileAnnotationWrapper, ImageWrapper
 from datetime import datetime
+from itertools import izip
 from tempfile import NamedTemporaryFile
 
 
@@ -16,6 +17,14 @@ for p in ['/utils', '/pychrm-lib']:
         sys.path.append(basedir + p)
 import FeatureHandler
 from pychrm.FeatureSet import Signatures
+
+try:
+    from PIL import Image, ImageDraw, ImageFont     # see ticket:2597
+except: #pragma: nocover
+    try:
+        import Image, ImageDraw, ImageFont          # see ticket:2597
+    except:
+        raise omero.ServerError('No PIL installed')
 
 
 
@@ -66,14 +75,31 @@ def getDatasetTableFile(tc, tableName, d):
     return None
 
 
-def extractFeatures(tc, ds, newOnly, imageId = None, im = None):
+def getTifs(im):
+    sz = (im.getSizeX(), im.getSizeY())
+    nch = im.getSizeC()
+    zctlist = [(0, ch, 0) for ch in xrange(im.getSizeC())]
+    planes = im.getPrimaryPixels().getPlanes(zctlist)
+    tifs = [Image.fromarray(p) for p in planes]
+
+    tmpfs = []
+    for tif in tifs:
+        with NamedTemporaryFile(suffix='.tif', delete=False) as tmpf:
+            tif.save(tmpf.name)
+        tmpfs.append(tmpf)
+
+    return tmpfs
+
+
+def extractFeatures(tc, ds, newOnly, chNames, imageId = None, im = None):
     message = ''
 
     # dataset must be explicitly provided because an image can be linked to
     # multiple datasets in which case im.getDataset() doesn't work
     if not im:
         if not imageId:
-            raise Exception('No input image')
+            #raise Exception('No input image')
+            raise omero.ServerError('No input image')
 
         im = tc.conn.getObject('Image', imageId)
         if not im:
@@ -90,23 +116,55 @@ def extractFeatures(tc, ds, newOnly, imageId = None, im = None):
         if newOnly and FeatureHandler.tableContainsId(tc, imageId):
             return message + 'Image id:%d features already in table' % imageId
 
-    # Pychrm only takes a tiff, so write an OME-TIFF to a temporary file
-    with NamedTemporaryFile(suffix='.tif', delete=False) as tmpf:
-        tmpf.write(im.exportOmeTiff())
+    # Pychrm only takes tifs
+    tmpfs = getTifs(im)
 
-    # Calculate features for an image, override the temporary filename
-    ft = Signatures.SmallFeatureSet(tmpf.name)
-    ft.source_path = im.getName()
-    tmpf.unlink(tmpf.name)
+    # Calculate features for an image channel
+    # Override the temporary filename
+    # Prepend the channel label to each feature name and combine
+    ftall = None
+    for tmpf, ch in izip(tmpfs, chNames):
+        ft = Signatures.SmallFeatureSet(tmpf.name)
+        ft.names = ['[%s] %s' % (ch, n) for n in ft.names]
+        ft.source_path = im.getName()
+        tmpf.unlink(tmpf.name)
+        if not ftall:
+            ftall = ft
+        else:
+            ftall.names += ft.names
+            ftall.values += ft.values
 
     # Save the features to a table
     if not tid:
-        FeatureHandler.createTable(tc, ft.names)
+        FeatureHandler.createTable(tc, ftall.names)
         message += 'Created new table\n'
         message += addFileAnnotationToDataset(tc, tc.table, ds)
 
-    FeatureHandler.saveFeatures(tc, imageId, ft)
+    FeatureHandler.saveFeatures(tc, imageId, ftall)
     return message + 'Extracted features from Image id:%d\n' % imageId
+
+
+def checkChannels(datasets):
+    message = ''
+    channels = None
+    imref = None
+    good = False
+
+    for d in datasets:
+        message += 'Checking channels in dataset id:%d\n' % d.getId()
+        for image in d.listChildren():
+            ch = [c.getLabel() for c in image.getChannels()]
+            if imref is None:
+                channels = ch
+                imref = image.getId()
+                message += 'Got channels %s, image id:%d\n' % (channels, imref)
+                good = True
+            elif channels != ch:
+                message += 'Expected channels %s, image id:%d has %s\n' % \
+                    (channels, image.getId(), ch)
+                good = False
+
+    return good, channels, message
 
 
 def processImages(client, scriptParams):
@@ -132,14 +190,25 @@ def processImages(client, scriptParams):
         if not objects:
             return message
 
-        datasets = tc.conn.getObjects(dataType, ids)
+        datasets = list(tc.conn.getObjects(dataType, ids))
+
+        good, chNames, msg = checkChannels(datasets)
+        message += msg
+        if not good:
+            raise omero.ServerError(
+                'Channel check failed, ' +
+                'all images must have the same channels: %s' % message)
+
         for d in datasets:
             message += 'Processing dataset id:%d\n' % d.getId()
             for image in d.listChildren():
                 message += 'Processing image id:%d\n' % image.getId()
-                msg = extractFeatures(tc, d, newOnly, im=image)
+                msg = extractFeatures(tc, d, newOnly, chNames, im=image)
                 message += msg + '\n'
 
+    except:
+        print message
+        raise
     finally:
         tc.closeTable()
 
@@ -152,7 +221,7 @@ def runScript():
     """
 
     client = scripts.client(
-        'PycharmFeatureExtraction.py',
+        'Pycharm_Feature_Extraction_Multichannel.py',
         'Extract the small Pychrm feature set from images',
 
         scripts.String('Data_Type', optional=False, grouping='1',
@@ -182,6 +251,7 @@ def runScript():
     try:
         startTime = datetime.now()
         session = client.getSession()
+        client.enableKeepAlive(60)
         scriptParams = {}
 
         # process the list of args above.
