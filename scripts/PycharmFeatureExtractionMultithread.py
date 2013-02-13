@@ -11,10 +11,9 @@ from tempfile import NamedTemporaryFile
 import multiprocessing
 
 
-import sys
-basedir = '/Users/simon/work'
-for p in ['/omero-pychrm/utils',
-          '/wndchrm/pychrm/trunk/build/lib.macosx-10.8-x86_64-2.7/']:
+import sys, os
+basedir = os.getenv('HOME') + '/work/omero-pychrm'
+for p in ['/utils', '/pychrm-lib']:
     if basedir + p not in sys.path:
         sys.path.append(basedir + p)
 import FeatureHandler
@@ -143,6 +142,9 @@ def processImages(client, scriptParams):
                 msg = extractFeatures(tc, d, newOnly, im=image)
                 message += msg + '\n'
 
+    except:
+        print message
+        raise
     finally:
         tc.closeTable()
 
@@ -190,6 +192,7 @@ def runScript():
     try:
         startTime = datetime.now()
         session = client.getSession()
+        client.enableKeepAlive(60)
         scriptParams = {}
 
         # process the list of args above.
