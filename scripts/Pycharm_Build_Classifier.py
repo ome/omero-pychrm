@@ -6,6 +6,7 @@ from omero.rtypes import rstring, rlong
 from omero.gateway import DatasetWrapper, FileAnnotationWrapper, ImageWrapper
 from datetime import datetime
 from math import ceil
+from itertools import izip
 
 import sys, os
 basedir = os.getenv('HOME') + '/work/omero-pychrm'
@@ -81,7 +82,7 @@ def getDatasetTableFile(tc, tableName, d):
     return None
 
 
-def createWeights(tcIn, tcOut, datasets, featureThreshold):
+def createWeights(tcIn, tcF, tcW, tcL, datasets, featureThreshold):
     # Build the classifier (basically a set of weights)
     message = ''
     trainFts = pychrm.FeatureSet.FeatureSet_Discrete()
@@ -101,15 +102,29 @@ def createWeights(tcIn, tcOut, datasets, featureThreshold):
         weights = weights.Threshold(nFeatures)
         trainFts = reduceFeatures(trainFts, weights)
 
-    #if not FeatureHandler.openTable(tcOut, tableName=tcOut.tableName):
-    #if not FeatureHandler.openTable(tcOut):
-    #    FeatureHandler.createTable(tcOut, weights.names)
-    #    message += 'Created new table\n'
-    #    #message += addFileAnnotationToDataset(tc, tc.table, ds)
 
-    #message += 'Saved classifier weights\n'
-    message += 'WARNING: Saving features not implemented\n'
-    #FeatureHandler.saveFeatures(tcOut, 0, weights)
+    # Save the features, weights and classes to tables
+    # TODO:Delete existing tables
+    # TODO:Attach to project as annotation
+    #if getProjectTableFile(tcOutF, tcF.tableName, proj):
+    FeatureHandler.createClassifierTables(tcF, tcW, tcL, weights.names)
+    message += 'Created classifier tables\n'
+    #message += addFileAnnotationToProject(tcOutF, tcF.table, proj)
+
+    # We've (ab)used imagenames_list to hold the image ids
+    ids = [long(a) for b in trainFts.imagenames_list for a in b]
+    classIds = [a for b in [[i] * len(z) for i, z in izip(xrange(
+                    len(trainFts.imagenames_list)), trainFts.imagenames_list)]
+                for a in b]
+    featureMatrix = trainFts.data_matrix
+    featureNames = weights.names
+    featureWeights = weights.values
+    classNames = trainFts.classnames_list
+
+    FeatureHandler.saveClassifierTables(
+        tcF, tcW, tcL, ids, classIds, featureMatrix,
+        featureNames, featureWeights, classNames)
+    message += 'Saved classifier\n'
     return trainFts, weights, message
 
 
@@ -118,33 +133,6 @@ def reduceFeatures(fts, weights):
         fts.source_path = ''
     ftsr = fts.FeatureReduce(weights.names)
     return ftsr
-
-
-
-def createAndSaveWeights(tcIn, tcOut1, tcOut2, datasets):
-    # Build the classifier (basically a set of weights)
-    # Store the classifier (weights, and also all training samples since this
-    # uses nearest neighbour)
-    message = ''
-    trainFts = pychrm.FeatureSet.FeatureSet_Discrete()
-
-    classId = 0
-    for ds in datasets:
-        message += 'Processing dataset id:%d\n' % ds.getId()
-        message += addToFeatureSet(tcIn, ds, trainFts, classId)
-        classId += 1
-
-    tmp = trainFts.ContiguousDataMatrix()
-    weights = pychrm.FeatureSet.FisherFeatureWeights.NewFromFeatureSet(trainFts)
-
-    #if not FeatureHandler.openTable(tcOut, tableName=tcOut.tableName):
-    if not FeatureHandler.openTable(tcOut):
-        FeatureHandler.createClassifierTables(tc1, tc2, featureNamesTODO)
-        message += 'Created new table\n'
-        #message += addFileAnnotationToProject(tc, tc.table, ds)
-
-    FeatureHandler.saveFeatures(tcOut, 0, weights)
-    return trainFts, weights, message + 'Saved classifier weights\n'
 
 
 def predictDataset(tcIn, trainFts, predDs, weights):
@@ -231,37 +219,49 @@ def trainAndPredict(client, scriptParams):
     contextName = scriptParams['Context_Name']
     featureThreshold = scriptParams['Features_threshold'] / 100.0
 
-    tableNameIn = '/Pychrm/' + contextName + '/SmallFeatureSet.h5'
-    tableNameOut = '/Pychrm/' + contextName + '/Weights.h5'
+    tableNameIn = '/Pychrm/' + contextName + FeatureHandler.SMALLFEATURES_TABLE
+    tableNameOutF = '/Pychrm/' + contextName + \
+        FeatureHandler.CLASS_WEIGHTS_TABLE
+    tableNameOutW = '/Pychrm/' + contextName + \
+        FeatureHandler.CLASS_FEATURES_TABLE
+    tableNameOutL = '/Pychrm/' + contextName + \
+        FeatureHandler.CLASS_LABELS_TABLE
     message += 'tableNameIn:' + tableNameIn + '\n'
-    message += 'tableNameOut:' + tableNameOut + '\n'
+    message += 'tableNameOutF:' + tableNameOutF + '\n'
+    message += 'tableNameOutW:' + tableNameOutW + '\n'
+    message += 'tableNameOut::' + tableNameOutL + '\n'
+
     tcIn = FeatureHandler.connect(client, tableNameIn)
-    tcOut = FeatureHandler.connect(client, tableNameOut)
+    tcOutF = FeatureHandler.connect(client, tableNameOutF)
+    tcOutW = FeatureHandler.connect(client, tableNameOutW)
+    tcOutL = FeatureHandler.connect(client, tableNameOutL)
 
     try:
         # Training
         message += 'Training classifier\n'
         trainDatasets = tcIn.conn.getObjects(dataType, trainIds)
         trainFts, weights, msg = createWeights(
-            tcIn, tcOut, trainDatasets, featureThreshold)
+            tcIn, tcOutF, tcOutW, tcOutL, trainDatasets, featureThreshold)
         message += msg
 
         # Predict
-        message += 'Predicting\n'
-        predDatasets = tcIn.conn.getObjects(dataType, predictIds)
+        #message += 'Predicting\n'
+        #predDatasets = tcIn.conn.getObjects(dataType, predictIds)
 
-        for ds in predDatasets:
-            message += 'Predicting dataset id:%d\n' % ds.getId()
-            pred, msg = predictDataset(tcIn, trainFts, ds, weights)
-            message += msg
-            addPredictionsAsComments(tcOut, pred, ds.getId(), commentImages)
+        #for ds in predDatasets:
+        #    message += 'Predicting dataset id:%d\n' % ds.getId()
+        #    pred, msg = predictDataset(tcIn, trainFts, ds, weights)
+        #    message += msg
+        #    addPredictionsAsComments(tcOut, pred, ds.getId(), commentImages)
 
     except:
         print message
         raise
     finally:
         tcIn.closeTable()
-        tcOut.closeTable()
+        tcOutF.closeTable()
+        tcOutW.closeTable()
+        tcOutL.closeTable()
 
     return message
 
