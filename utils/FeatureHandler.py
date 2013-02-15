@@ -4,12 +4,18 @@
 from itertools import izip
 from TableConnection import FeatureTableConnection, TableConnectionError
 from TableConnection import TableConnection
+from omero.grid import LongColumn, DoubleColumn, DoubleArrayColumn, StringColumn
 
 
 ######################################################################
 # Constants for OMERO
 ######################################################################
 NAMESPACE = '/testing/pychrm'
+SMALLFEATURES_TABLE = '/SmallFeatureSet.h5'
+
+CLASS_FEATURES_TABLE = '/ClassFeatures.h5'
+CLASS_WEIGHTS_TABLE = '/Weights.h5'
+CLASS_LABELS_TABLE = '/ClassLabels.h5'
 
 
 ######################################################################
@@ -167,11 +173,12 @@ def loadFeatures(tc, id):
 ######################################################################
 
 
-def createClassifierTables(tc1, tc2, featureNames):
+def createClassifierTables(tc1, tc2, tc3, featureNames):
     """
-    Create a pair of OMERO.tables for storing the state of a trained image
+    Create a set of OMERO.tables for storing the state of a trained image
     classifier. The first table stores the training samples with reduced
-    features, the second stores a list of weights and feature names
+    features and classes, the second stores a list of weights and feature
+    names, and the third stores the class IDs and class names
     """
     schema1 = [
         LongColumn('id'),
@@ -186,10 +193,67 @@ def createClassifierTables(tc1, tc2, featureNames):
         ]
     tc2.newTable(schema2)
 
-    
+    schema3 = [
+        LongColumn('classID'),
+        StringColumn('className', '', 1024),
+        ]
+    tc3.newTable(schema3)
 
-    return tc1, tc2
+
+def saveClassifierTables(tc1, tc2, tc3,
+                         ids, classIds, featureMatrix,
+                         featureNames, weights, classNames):
+    """
+    Save the classifier state (reduced features, labels and weights)
+    """
+    t1 = tc1.table
+    cols1 = t1.getHeaders()
+    cols1[0].values = ids
+    cols1[1].values = classIds
+    cols1[2].values = featureMatrix
+    t1.addData(cols1)
+
+    t2 = tc2.table
+    cols2 = t2.getHeaders()
+    cols2[0].values = featureNames
+    cols2[1].values = weights
+    t2.addData(cols2)
+
+    t3 = tc3.table
+    cols3 = t3.getHeaders()
+    cols3[0].values = range(len(classNames))
+    cols3[1].values = classNames
+    t3.addData(cols3)
 
 
+def loadClassifierTables(tc1, tc2, tc3):
+    """
+    Load the classifier state (reduced features, labels and weights)
+    """
+    t1 = tc1.table
+    d1 = tc1.chunkedRead(
+        range(len(t1.getHeaders())), 0, t1.getNumberOfRows(), 100)
+    cols1 = d1.columns
+    ids = cols1[0].values
+    trainClassIds = cols1[1].values
+    featureMatrix = cols1[2].values
 
+    t2 = tc2.table
+    d2 = tc2.chunkedRead(
+        range(len(t2.getHeaders())), 0, t2.getNumberOfRows(), 100)
+    cols2 = d2.columns
+    featureNames = cols2[0].values
+    weights = cols2[1].values
+
+    t3 = tc3.table
+    d3 = tc3.chunkedRead(
+        range(len(t3.getHeaders())), 0, t3.getNumberOfRows(), 100)
+    cols3 = d3.columns
+    classIds = cols3[0].values
+    classNames = cols3[1].values
+
+    return {'ids': ids, 'trainClassIds': trainClassIds,
+            'featureMatrix': featureMatrix,
+            'featureNames': featureNames, 'weights': weights,
+            'classIds': classIds, 'classNames': classNames}
 
