@@ -16,10 +16,9 @@ import FeatureHandler
 
 
 def removeAnnotations(conn, obj, rmTables, rmComments):
-    namespace = FeatureHandler.NAMESPACE
     rmIds = []
     for ann in obj.listAnnotations():
-        if ann.getNs() != namespace:
+        if ann.getNs() != FeatureHandler.PYCHRM_NAMESPACE:
             continue
         if rmTables and isinstance(ann, FileAnnotationWrapper):
             rmIds.append(ann.getId())
