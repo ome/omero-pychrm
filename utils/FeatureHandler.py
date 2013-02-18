@@ -4,13 +4,14 @@
 from itertools import izip
 from TableConnection import FeatureTableConnection, TableConnectionError
 from TableConnection import TableConnection
-from omero.grid import LongColumn, DoubleColumn, DoubleArrayColumn, StringColumn
+import omero
+from omero.rtypes import rstring
 
 
 ######################################################################
 # Constants for OMERO
 ######################################################################
-NAMESPACE = '/testing/pychrm'
+PYCHRM_NAMESPACE = '/testing/pychrm'
 SMALLFEATURES_TABLE = '/SmallFeatureSet.h5'
 
 CLASS_FEATURES_TABLE = '/ClassFeatures.h5'
@@ -181,21 +182,21 @@ def createClassifierTables(tc1, tc2, tc3, featureNames):
     names, and the third stores the class IDs and class names
     """
     schema1 = [
-        LongColumn('id'),
-        LongColumn('label'),
-        DoubleArrayColumn('features', '', len(featureNames)),
+        omero.grid.LongColumn('id'),
+        omero.grid.LongColumn('label'),
+        omero.grid.DoubleArrayColumn('features', '', len(featureNames)),
         ]
     tc1.newTable(schema1)
 
     schema2 = [
-        StringColumn('featurename', '', 1024),
-        DoubleColumn('weight'),
+        omero.grid.StringColumn('featurename', '', 1024),
+        omero.grid.DoubleColumn('weight'),
         ]
     tc2.newTable(schema2)
 
     schema3 = [
-        LongColumn('classID'),
-        StringColumn('className', '', 1024),
+        omero.grid.LongColumn('classID'),
+        omero.grid.StringColumn('className', '', 1024),
         ]
     tc3.newTable(schema3)
 
@@ -256,4 +257,83 @@ def loadClassifierTables(tc1, tc2, tc3):
             'featureMatrix': featureMatrix,
             'featureNames': featureNames, 'weights': weights,
             'classIds': classIds, 'classNames': classNames}
+
+
+######################################################################
+# Annotations
+######################################################################
+
+
+def addFileAnnotationTo(tc, table, obj):
+    """
+    Attach the annotation to an object (dataset/project) if not already attached
+    """
+    tfile = table.getOriginalFile()
+    oclass = obj.OMERO_CLASS
+
+    obj = tc.conn.getObject(oclass, obj.getId())
+    for a in obj.listAnnotations(PYCHRM_NAMESPACE):
+        if isinstance(a, omero.gateway.FileAnnotationWrapper):
+            if tfile.getId() == a._obj.getFile().getId():
+                return 'Already attached'
+
+    fa = omero.model.FileAnnotationI()
+    fa.setFile(tfile)
+    fa.setNs(rstring(PYCHRM_NAMESPACE))
+    fa.setDescription(rstring(PYCHRM_NAMESPACE + ':' + tfile.getName().val))
+
+    if oclass == 'Dataset':
+        annLink = omero.model.DatasetAnnotationLinkI()
+        annLink.link(omero.model.DatasetI(obj.getId(), False), fa)
+    elif oclass == 'Project':
+        annLink = omero.model.ProjectAnnotationLinkI()
+        annLink.link(omero.model.ProjectI(obj.getId(), False), fa)
+    else:
+        raise Exception('Unexpected object type: %s' % oclass)
+
+    annLink = tc.conn.getUpdateService().saveAndReturnObject(annLink)
+    return 'Attached file id:%d to %s id:%d\n' % \
+        (tfile.getId().getValue(), oclass, obj.getId())
+
+
+def getAttachedTableFile(tc, tableName, obj):
+    """
+    See if this object (dataset/project) has a table file annotation
+    """
+    # Refresh the dataset, as the cached view might not show the latest
+    # annotations
+    obj = tc.conn.getObject(obj.OMERO_CLASS, obj.getId())
+
+    for a in obj.listAnnotations(PYCHRM_NAMESPACE):
+        if isinstance(a, omero.gateway.FileAnnotationWrapper):
+            if tableName == a.getFileName():
+                return a._obj.getFile().getId().getValue()
+
+    return None
+
+
+def addCommentTo(tc, comment, objType, objId):
+    """
+    Add a comment to an object (dataset/project/image)
+    """
+    ca = omero.model.CommentAnnotationI()
+    ca.setNs(rstring(PYCHRM_NAMESPACE))
+    ca.setTextValue(rstring(comment))
+
+    if objType == "Dataset":
+        annLink = omero.model.DatasetAnnotationLinkI()
+        annLink.link(omero.model.DatasetI(objId, False), ca)
+    elif objType == "Project":
+        annLink = omero.model.ProjectAnnotationLinkI()
+        annLink.link(omero.model.ProjectI(objId, False), ca)
+    elif objType == "Image":
+        annLink = omero.model.ImageAnnotationLinkI()
+        annLink.link(omero.model.ImageI(objId, False), ca)
+    else:
+        raise Exception('Unexpected object type: %s' % oclass)
+
+    annLink = tc.conn.getUpdateService().saveAndReturnObject(annLink)
+    return 'Attached comment to %s id:%d\n' % (objType, objId)
+
+
 

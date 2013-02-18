@@ -3,7 +3,6 @@
 from omero import scripts
 import omero.model
 from omero.rtypes import rstring, rlong
-from omero.gateway import DatasetWrapper, FileAnnotationWrapper, ImageWrapper
 from datetime import datetime
 from math import ceil
 from itertools import izip
@@ -17,69 +16,6 @@ import FeatureHandler
 import pychrm.FeatureSet
 
 
-
-def addFileAnnotationToDataset(tc, table, d):
-    """
-    Attach the annotation to the dataset if not already attached
-    """
-    namespace = FeatureHandler.NAMESPACE
-
-    tfile = table.getOriginalFile()
-
-    d = tc.conn.getObject('Dataset', d.getId())
-    for a in d.listAnnotations(namespace):
-        if isinstance(a, FileAnnotationWrapper):
-            if tfile.getId() == a._obj.getFile().getId():
-                return 'Already attached'
-
-    fa = omero.model.FileAnnotationI()
-    fa.setFile(tfile)
-    fa.setNs(rstring(namespace))
-    fa.setDescription(rstring(namespace + ':' + tfile.getName().val))
-
-    annLink = omero.model.DatasetAnnotationLinkI()
-    annLink.link(omero.model.DatasetI(d.getId(), False), fa)
-
-    annLink = tc.conn.getUpdateService().saveAndReturnObject(annLink)
-    return 'Attached file id:%d to dataset id:%d\n' % \
-        (tfile.getId().getValue(), d.getId())
-
-
-def addCommentTo(tc, comment, objType, objId):
-    namespace = FeatureHandler.NAMESPACE
-
-    ca = omero.model.CommentAnnotationI()
-    ca.setNs(rstring(namespace))
-    ca.setTextValue(rstring(comment))
-
-    if objType == "Dataset":
-        annLink = omero.model.DatasetAnnotationLinkI()
-        annLink.link(omero.model.DatasetI(objId, False), ca)
-    else:
-        annLink = omero.model.ImageAnnotationLinkI()
-        annLink.link(omero.model.ImageI(objId, False), ca)
-
-    annLink = tc.conn.getUpdateService().saveAndReturnObject(annLink)
-    return 'Attached comment to %s id:%d\n' % (objType, objId)
-
-
-def getDatasetTableFile(tc, tableName, d):
-    """
-    See if the dataset has a table file annotation
-    """
-    namespace = FeatureHandler.NAMESPACE
-
-    # Refresh the dataset, as the cached view might not show the latest
-    # annotations
-    d = tc.conn.getObject('Dataset', d.getId())
-
-    for a in d.listAnnotations(namespace):
-        if isinstance(a, FileAnnotationWrapper):
-            if tableName == a.getFileName():
-                return a._obj.getFile().getId().getValue()
-                #return a._obj.getFile()
-
-    return None
 
 
 def createWeights(tcIn, tcF, tcW, tcL, datasets, featureThreshold):
@@ -172,17 +108,17 @@ def addPredictionsAsComments(tc, prediction, dsId, commentImages):
         imId = long(r.source_file)
 
         if commentImages:
-            addCommentTo(tc, c, 'Image', imId)
+            FeatureHandler.addCommentTo(tc, c, 'Image', imId)
         im = tc.conn.getObject('Image', imId)
         dsComment += im.getName() + ' ' + c + '\n'
 
-    addCommentTo(tc, dsComment, 'Dataset', dsId)
+    FeatureHandler.addCommentTo(tc, dsComment, 'Dataset', dsId)
 
 
 def addToFeatureSet(tcIn, ds, fts, classId):
     message = ''
 
-    tid = getDatasetTableFile(tcIn, tcIn.tableName, ds)
+    tid = FeatureHandler.getAttachedTableFile(tcIn, tcIn.tableName, ds)
     if tid:
         if not FeatureHandler.openTable(tcIn, tableId=tid):
             return message + '\nERROR: Table not opened'

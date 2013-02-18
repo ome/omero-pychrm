@@ -5,7 +5,6 @@ from omero.util import script_utils
 import omero.model
 from omero.gateway import BlitzGateway
 from omero.rtypes import rstring, rlong
-from omero.gateway import FileAnnotationWrapper, ImageWrapper
 from datetime import datetime
 
 
