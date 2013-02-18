@@ -229,7 +229,7 @@ def trainAndPredict(client, scriptParams):
     message += 'tableNameIn:' + tableNameIn + '\n'
     message += 'tableNameOutF:' + tableNameOutF + '\n'
     message += 'tableNameOutW:' + tableNameOutW + '\n'
-    message += 'tableNameOut::' + tableNameOutL + '\n'
+    message += 'tableNameOutL:' + tableNameOutL + '\n'
 
     tcIn = FeatureHandler.connect(client, tableNameIn)
     tcOutF = FeatureHandler.connect(client, tableNameOutF)
