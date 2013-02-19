@@ -18,13 +18,14 @@ import pychrm.FeatureSet
 
 
 
-def createWeights(tcIn, tcF, tcW, tcL, datasets, featureThreshold):
+
+def createWeights(tcIn, tcF, tcW, tcL, project, featureThreshold):
     # Build the classifier (basically a set of weights)
     message = ''
     trainFts = pychrm.FeatureSet.FeatureSet_Discrete()
 
     classId = 0
-    for ds in datasets:
+    for ds in project.listChildren():
         message += 'Processing dataset id:%d\n' % ds.getId()
         message += addToFeatureSet(tcIn, ds, trainFts, classId)
         classId += 1
@@ -41,11 +42,9 @@ def createWeights(tcIn, tcF, tcW, tcL, datasets, featureThreshold):
 
     # Save the features, weights and classes to tables
     # TODO:Delete existing tables
-    # TODO:Attach to project as annotation
     #if getProjectTableFile(tcOutF, tcF.tableName, proj):
     FeatureHandler.createClassifierTables(tcF, tcW, tcL, weights.names)
     message += 'Created classifier tables\n'
-    #message += addFileAnnotationToProject(tcOutF, tcF.table, proj)
 
     # We've (ab)used imagenames_list to hold the image ids
     ids = [long(a) for b in trainFts.imagenames_list for a in b]
@@ -60,6 +59,11 @@ def createWeights(tcIn, tcF, tcW, tcL, datasets, featureThreshold):
     FeatureHandler.saveClassifierTables(
         tcF, tcW, tcL, ids, classIds, featureMatrix,
         featureNames, featureWeights, classNames)
+
+    FeatureHandler.addFileAnnotationTo(tcF, tcF.table, project)
+    FeatureHandler.addFileAnnotationTo(tcW, tcW.table, project)
+    FeatureHandler.addFileAnnotationTo(tcL, tcL.table, project)
+
     message += 'Saved classifier\n'
     return trainFts, weights, message
 
@@ -143,23 +147,25 @@ def addToFeatureSet(tcIn, ds, fts, classId):
     return message
 
 
-def trainAndPredict(client, scriptParams):
+def trainClassifier(client, scriptParams):
     message = ''
 
     # for params with default values, we can get the value directly
     dataType = scriptParams['Data_Type']
-    trainIds = scriptParams['Training_IDs']
-    predictIds = scriptParams['Predict_IDs']
-    commentImages = scriptParams['Comment_images']
-
+    projectId = scriptParams['IDs']
     contextName = scriptParams['Context_Name']
     featureThreshold = scriptParams['Features_threshold'] / 100.0
 
+    if len(projectId) != 1:
+        raise Exception('A single project must be provided')
+
+    projectId = projectId[0]
+
     tableNameIn = '/Pychrm/' + contextName + FeatureHandler.SMALLFEATURES_TABLE
     tableNameOutF = '/Pychrm/' + contextName + \
-        FeatureHandler.CLASS_WEIGHTS_TABLE
-    tableNameOutW = '/Pychrm/' + contextName + \
         FeatureHandler.CLASS_FEATURES_TABLE
+    tableNameOutW = '/Pychrm/' + contextName + \
+        FeatureHandler.CLASS_WEIGHTS_TABLE
     tableNameOutL = '/Pychrm/' + contextName + \
         FeatureHandler.CLASS_LABELS_TABLE
     message += 'tableNameIn:' + tableNameIn + '\n'
@@ -175,9 +181,9 @@ def trainAndPredict(client, scriptParams):
     try:
         # Training
         message += 'Training classifier\n'
-        trainDatasets = tcIn.conn.getObjects(dataType, trainIds)
+        trainProject = tcIn.conn.getObject(dataType, projectId)
         trainFts, weights, msg = createWeights(
-            tcIn, tcOutF, tcOutW, tcOutL, trainDatasets, featureThreshold)
+            tcIn, tcOutF, tcOutW, tcOutL, trainProject, featureThreshold)
         message += msg
 
         # Predict
@@ -210,23 +216,15 @@ def runScript():
     client = scripts.client(
         'Pycharm_Build_Classifier.py',
         'Build a classifier from features calculated over two or more ' +
-        'datasets, each dataset represents a different class',
+        'datasets in a project, each dataset represents a different class',
 
         scripts.String('Data_Type', optional=False, grouping='1',
-                       description='The data you want to work with.',
-                       values=[rstring('Dataset')], default='Dataset'),
+                       description='The training source.',
+                       values=[rstring('Project')], default='Project'),
 
         scripts.List(
-            'Training_IDs', optional=False, grouping='1',
-            description='List of training Dataset IDs').ofType(rlong(0)),
-
-        scripts.List(
-            'Predict_IDs', optional=False, grouping='1',
-            description='List of Dataset IDs to be predicted').ofType(rlong(0)),
-
-        scripts.Bool(
-            'Comment_images', optional=False, grouping='1',
-            description='Add predictions as image comments', default=False),
+            'IDs', optional=False, grouping='1',
+            description='Project ID').ofType(rlong(0)),
 
         scripts.String(
             'Context_Name', optional=False, grouping='1',
@@ -258,7 +256,7 @@ def runScript():
         message = str(scriptParams) + '\n'
 
         # Run the script
-        message += trainAndPredict(client, scriptParams) + '\n'
+        message += trainClassifier(client, scriptParams) + '\n'
 
         stopTime = datetime.now()
         message += 'Duration: %s' % str(stopTime - startTime)
