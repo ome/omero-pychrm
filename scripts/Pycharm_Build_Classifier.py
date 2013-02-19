@@ -75,50 +75,6 @@ def reduceFeatures(fts, weights):
     return ftsr
 
 
-def predictDataset(tcIn, trainFts, predDs, weights):
-    message = ''
-    predictFts = pychrm.FeatureSet.FeatureSet_Discrete()
-    classId = 0
-    message += addToFeatureSet(tcIn, predDs, predictFts, classId)
-    tmp = predictFts.ContiguousDataMatrix()
-
-    predictFts = reduceFeatures(predictFts, weights)
-
-    pred = pychrm.FeatureSet.DiscreteBatchClassificationResult.New(
-        trainFts, predictFts, weights)
-    return pred, message
-
-
-    #message = FeatureHandler.saveFeatures(tcOut, 0, weights)
-    #return message + 'Saved classifier weights\n'
-
-
-def formatPredResult(r):
-    return 'ID:%s Prediction:%s Probabilities:[%s]' % \
-        (r.source_file, r.predicted_class_name,
-         ' '.join(['%.3e' % p for p in r.marginal_probabilities]))
-
-
-def addPredictionsAsComments(tc, prediction, dsId, commentImages):
-    """
-    Add a comment to the dataset containing the prediction results.
-    @param commentImages If true add comment to individual images as well
-    as the dataset
-    """
-    dsComment = ''
-
-    for r in prediction.individual_results:
-        c = formatPredResult(r)
-        imId = long(r.source_file)
-
-        if commentImages:
-            FeatureHandler.addCommentTo(tc, c, 'Image', imId)
-        im = tc.conn.getObject('Image', imId)
-        dsComment += im.getName() + ' ' + c + '\n'
-
-    FeatureHandler.addCommentTo(tc, dsComment, 'Dataset', dsId)
-
-
 def addToFeatureSet(tcIn, ds, fts, classId):
     message = ''
 
@@ -135,11 +91,9 @@ def addToFeatureSet(tcIn, ds, fts, classId):
     for image in ds.listChildren():
         imId = image.getId()
         message += '\tProcessing features for image id:%d\n' % imId
-        #message += extractFeatures(tc, d, im = image) + '\n'
 
         sig = pychrm.FeatureSet.Signatures()
         (sig.names, sig.values) = FeatureHandler.loadFeatures(tcIn, imId)
-        #sig.source_file = image.getName()
         sig.source_file = str(imId)
         fts.AddSignature(sig, classId)
 
@@ -185,16 +139,6 @@ def trainClassifier(client, scriptParams):
         trainFts, weights, msg = createWeights(
             tcIn, tcOutF, tcOutW, tcOutL, trainProject, featureThreshold)
         message += msg
-
-        # Predict
-        #message += 'Predicting\n'
-        #predDatasets = tcIn.conn.getObjects(dataType, predictIds)
-
-        #for ds in predDatasets:
-        #    message += 'Predicting dataset id:%d\n' % ds.getId()
-        #    pred, msg = predictDataset(tcIn, trainFts, ds, weights)
-        #    message += msg
-        #    addPredictionsAsComments(tcOut, pred, ds.getId(), commentImages)
 
     except:
         print message
