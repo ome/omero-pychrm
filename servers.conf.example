@@ -1,0 +1,11 @@
+# This file should contains lines in the form
+#name host port username password
+# where name: short-name
+#       host: hostname of the OMERO server
+#       port: port to connect to
+#       user: OMERO username
+#       password: OMERO password
+#
+# Spaces are not currentl supports
+# For example:
+local localhost 4064 root omero
