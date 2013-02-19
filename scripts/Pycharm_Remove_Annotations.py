@@ -61,7 +61,7 @@ def runScript():
     The main entry point of the script, as called by the client via the scripting service, passing the required parameters. 
     """
 
-    dataTypes = [rstring('Dataset'),rstring('Image')]
+    dataTypes = [rstring('Project'), rstring('Dataset'), rstring('Image')]
     client = scripts.client(
         'Pycharm_Remove_Annotations.py',
         'Remove Pychrm annotations from Datasets and contained Images, or just Images',
