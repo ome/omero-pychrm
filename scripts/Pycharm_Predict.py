@@ -4,8 +4,7 @@ from omero import scripts
 import omero.model
 from omero.rtypes import rstring, rlong
 from datetime import datetime
-from math import ceil
-from itertools import izip
+import numpy
 
 import sys, os
 basedir = os.getenv('HOME') + '/work/omero-pychrm'
@@ -15,6 +14,60 @@ for p in ['/utils', '/pychrm-lib']:
 import FeatureHandler
 import pychrm.FeatureSet
 
+
+
+def loadClassifier(tcF, tcW, tcL, project):
+    tidF = FeatureHandler.getAttachedTableFile(tcF, tcF.tableName, project)
+    tidW = FeatureHandler.getAttachedTableFile(tcW, tcW.tableName, project)
+    tidL = FeatureHandler.getAttachedTableFile(tcL, tcL.tableName, project)
+
+    if tidF is None or tidW is None or tidL is None:
+        raise Exception('Incomplete set of classifier tables: %s' %
+                        (tidF, tidW, tidL))
+
+    FeatureHandler.openTable(tcF, tableId=tidF)
+    FeatureHandler.openTable(tcW, tableId=tidW)
+    FeatureHandler.openTable(tcL, tableId=tidL)
+
+    cls = FeatureHandler.loadClassifierTables(tcF, tcW, tcL)
+    #ids,trainClassIds,featureMatrix,featureNames,weights,classIds,classNames
+
+    trainFts = pychrm.FeatureSet.FeatureSet_Discrete()
+
+    #if cls['classIds'] != sorted(cls['classIds']):
+    if cls['classIds'] != range(len(cls['classIds'])):
+        raise Exception('Incorrectly ordered class IDs')
+    trainFts.classnames_list = cls['classNames']
+
+    # Objects should be in order of increasing class ID, this makes rebuilding
+    # data_list much faster
+    nclasses = len(cls['classNames'])
+    classCounts = [0] * nclasses
+    cprev = -1
+    for c in cls['trainClassIds']:
+        if c < cprev:
+            raise Exception('Incorrectly ordered training class feature data')
+        cprev = c
+        classCounts[c] += 1
+    trainFts.classsizes_list = classCounts
+
+    classFts = [[] for n in xrange(len(cls['classNames']))]
+    p = 0
+    for i in xrange(nclasses):
+        classFts[i] = numpy.array(cls['featureMatrix'][p:(p + classCounts[i])])
+        p += classCounts[i]
+    trainFts.data_list = classFts
+    trainFts.num_images = sum(classCounts)
+    trainFts.num_features = len(cls['featureNames'])
+    trainFts.num_classes = nclasses
+
+    trainFts.featurenames_list = cls['featureNames']
+    trainFts.imagenames_list = cls['ids']
+    tmp = trainFts.ContiguousDataMatrix()
+
+    weights = pychrm.FeatureSet.FisherFeatureWeights(
+        data_dict={'names': cls['featureNames'], 'values': cls['weights']})
+    return (trainFts, weights)
 
 
 
@@ -30,10 +83,6 @@ def predictDataset(tcIn, trainFts, predDs, weights):
     pred = pychrm.FeatureSet.DiscreteBatchClassificationResult.New(
         trainFts, predictFts, weights)
     return pred, message
-
-
-    #message = FeatureHandler.saveFeatures(tcOut, 0, weights)
-    #return message + 'Saved classifier weights\n'
 
 
 def formatPredResult(r):
@@ -60,6 +109,13 @@ def addPredictionsAsComments(tc, prediction, dsId, commentImages):
         dsComment += im.getName() + ' ' + c + '\n'
 
     FeatureHandler.addCommentTo(tc, dsComment, 'Dataset', dsId)
+
+
+def reduceFeatures(fts, weights):
+    if fts.source_path is None:
+        fts.source_path = ''
+    ftsr = fts.FeatureReduce(weights.names)
+    return ftsr
 
 
 def addToFeatureSet(tcIn, ds, fts, classId):
@@ -90,61 +146,57 @@ def addToFeatureSet(tcIn, ds, fts, classId):
     return message
 
 
-def trainAndPredict(client, scriptParams):
+def predict(client, scriptParams):
     message = ''
 
     # for params with default values, we can get the value directly
+    projectId = scriptParams['Training_Project_ID']
     dataType = scriptParams['Data_Type']
-    trainIds = scriptParams['Training_IDs']
-    predictIds = scriptParams['Predict_IDs']
-    commentImages = scriptParams['Comment_images']
+    predictIds = scriptParams['IDs']
+    commentImages = scriptParams['Comment_Images']
 
     contextName = scriptParams['Context_Name']
-    featureThreshold = scriptParams['Features_threshold'] / 100.0
 
     tableNameIn = '/Pychrm/' + contextName + FeatureHandler.SMALLFEATURES_TABLE
-    tableNameOutF = '/Pychrm/' + contextName + \
-        FeatureHandler.CLASS_WEIGHTS_TABLE
-    tableNameOutW = '/Pychrm/' + contextName + \
+    tableNameF = '/Pychrm/' + contextName + \
         FeatureHandler.CLASS_FEATURES_TABLE
-    tableNameOutL = '/Pychrm/' + contextName + \
+    tableNameW = '/Pychrm/' + contextName + \
+        FeatureHandler.CLASS_WEIGHTS_TABLE
+    tableNameL = '/Pychrm/' + contextName + \
         FeatureHandler.CLASS_LABELS_TABLE
     message += 'tableNameIn:' + tableNameIn + '\n'
-    message += 'tableNameOutF:' + tableNameOutF + '\n'
-    message += 'tableNameOutW:' + tableNameOutW + '\n'
-    message += 'tableNameOutL:' + tableNameOutL + '\n'
+    message += 'tableNameF:' + tableNameF + '\n'
+    message += 'tableNameW:' + tableNameW + '\n'
+    message += 'tableNameL:' + tableNameL + '\n'
 
     tcIn = FeatureHandler.connect(client, tableNameIn)
-    tcOutF = FeatureHandler.connect(client, tableNameOutF)
-    tcOutW = FeatureHandler.connect(client, tableNameOutW)
-    tcOutL = FeatureHandler.connect(client, tableNameOutL)
+    tcF = FeatureHandler.connect(client, tableNameF)
+    tcW = FeatureHandler.connect(client, tableNameW)
+    tcL = FeatureHandler.connect(client, tableNameL)
 
     try:
-        # Training
-        message += 'Training classifier\n'
-        trainDatasets = tcIn.conn.getObjects(dataType, trainIds)
-        trainFts, weights, msg = createWeights(
-            tcIn, tcOutF, tcOutW, tcOutL, trainDatasets, featureThreshold)
-        message += msg
+        message += 'Loading classifier\n'
+        trainProject = tcIn.conn.getObject('Project', projectId)
+        trainFts, weights = loadClassifier(tcF, tcW, tcL, trainProject)
 
         # Predict
-        #message += 'Predicting\n'
-        #predDatasets = tcIn.conn.getObjects(dataType, predictIds)
+        message += 'Predicting\n'
+        predDatasets = tcIn.conn.getObjects(dataType, predictIds)
 
-        #for ds in predDatasets:
-        #    message += 'Predicting dataset id:%d\n' % ds.getId()
-        #    pred, msg = predictDataset(tcIn, trainFts, ds, weights)
-        #    message += msg
-        #    addPredictionsAsComments(tcOut, pred, ds.getId(), commentImages)
+        for ds in predDatasets:
+            message += 'Predicting dataset id:%d\n' % ds.getId()
+            pred, msg = predictDataset(tcIn, trainFts, ds, weights)
+            message += msg
+            addPredictionsAsComments(tcIn, pred, ds.getId(), commentImages)
 
     except:
         print message
         raise
     finally:
         tcIn.closeTable()
-        tcOutF.closeTable()
-        tcOutW.closeTable()
-        tcOutL.closeTable()
+        tcF.closeTable()
+        tcW.closeTable()
+        tcL.closeTable()
 
     return message
 
@@ -160,12 +212,16 @@ def runScript():
         'datasets, each dataset represents a different class',
 
         scripts.String('Data_Type', optional=False, grouping='1',
-                       description='The data you want to work with.',
-                       values=[rstring('Dataset')], default='Dataset'),
+                       description='The source data to be predicted.',
+                       values=[rstring('Project'), rstring('Dataset'), rstring('Image')], default='Dataset'),
 
         scripts.List(
-            'Predict_IDs', optional=False, grouping='1',
+            'IDs', optional=False, grouping='1',
             description='List of Dataset IDs to be predicted').ofType(rlong(0)),
+
+        scripts.Long(
+            'Training_Project_ID', optional=False, grouping='1',
+            description='Project ID used for training'),
 
         scripts.String(
             'Context_Name', optional=False, grouping='1',
@@ -173,7 +229,7 @@ def runScript():
             default='Example'),
 
         scripts.Bool(
-            'Comment_images', optional=False, grouping='1',
+            'Comment_Images', optional=False, grouping='1',
             description='Add predictions as image comments', default=False),
 
         version = '0.0.1',
@@ -195,7 +251,7 @@ def runScript():
         message = str(scriptParams) + '\n'
 
         # Run the script
-        message += trainAndPredict(client, scriptParams) + '\n'
+        message += predict(client, scriptParams) + '\n'
 
         stopTime = datetime.now()
         message += 'Duration: %s' % str(stopTime - startTime)
