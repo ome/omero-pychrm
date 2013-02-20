@@ -27,8 +27,18 @@ def removeAnnotations(conn, obj, rmTables, rmComments):
 
     if rmIds:
         conn.deleteObjects('Annotation', rmIds)
-    return 'Removed annotations:%s from %s id:%d\n' % \
+
+    message = 'Removed annotations:%s from %s id:%d\n' % \
         (rmIds, obj.OMERO_CLASS, obj.getId())
+
+    try:
+        # Keep recursing until listChildren not implemented
+        for ch in obj.listChildren():
+            message += removeAnnotations(conn, ch, rmTables, rmComments)
+    except NotImplementedError:
+        pass
+
+    return message
 
 
 def processObjects(client, scriptParams):
@@ -49,9 +59,6 @@ def processObjects(client, scriptParams):
 
     for o in objects:
         message += removeAnnotations(conn, o, rmTables, rmComments)
-        if dataType == 'Dataset':
-            for im in o.listChildren():
-                message += removeAnnotations(conn, im, rmTables, rmComments)
 
     return message
 
