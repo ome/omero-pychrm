@@ -207,21 +207,18 @@ def saveClassifierTables(tc1, tc2, tc3,
     """
     Save the classifier state (reduced features, labels and weights)
     """
-    t1 = tc1.table
-    cols1 = t1.getHeaders()
+    cols1 = tc1.getHeaders()
     cols1[0].values = ids
     cols1[1].values = classIds
     cols1[2].values = featureMatrix
     t1.addData(cols1)
 
-    t2 = tc2.table
-    cols2 = t2.getHeaders()
+    cols2 = tc2.getHeaders()
     cols2[0].values = featureNames
     cols2[1].values = weights
     t2.addData(cols2)
 
-    t3 = tc3.table
-    cols3 = t3.getHeaders()
+    cols3 = tc3.getHeaders()
     cols3[0].values = range(len(classNames))
     cols3[1].values = classNames
     t3.addData(cols3)
@@ -231,24 +228,21 @@ def loadClassifierTables(tc1, tc2, tc3):
     """
     Load the classifier state (reduced features, labels and weights)
     """
-    t1 = tc1.table
     d1 = tc1.chunkedRead(
-        range(len(t1.getHeaders())), 0, t1.getNumberOfRows(), 100)
+        range(len(tc1.getHeaders())), 0, tc1.getNumberOfRows(), CHUNK_SIZE)
     cols1 = d1.columns
     ids = cols1[0].values
     trainClassIds = cols1[1].values
     featureMatrix = cols1[2].values
 
-    t2 = tc2.table
     d2 = tc2.chunkedRead(
-        range(len(t2.getHeaders())), 0, t2.getNumberOfRows(), 100)
+        range(len(tc2.getHeaders())), 0, tc2.getNumberOfRows(), CHUNK_SIZE)
     cols2 = d2.columns
     featureNames = cols2[0].values
     weights = cols2[1].values
 
-    t3 = tc3.table
     d3 = tc3.chunkedRead(
-        range(len(t3.getHeaders())), 0, t3.getNumberOfRows(), 100)
+        range(len(tc3.getHeaders())), 0, tc3.getNumberOfRows(), CHUNK_SIZE)
     cols3 = d3.columns
     classIds = cols3[0].values
     classNames = cols3[1].values
