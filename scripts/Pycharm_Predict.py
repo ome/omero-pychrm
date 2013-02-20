@@ -169,10 +169,10 @@ def predict(client, scriptParams):
     message += 'tableNameW:' + tableNameW + '\n'
     message += 'tableNameL:' + tableNameL + '\n'
 
-    tcIn = FeatureHandler.connect(client, tableNameIn)
-    tcF = FeatureHandler.connect(client, tableNameF)
-    tcW = FeatureHandler.connect(client, tableNameW)
-    tcL = FeatureHandler.connect(client, tableNameL)
+    tcIn = FeatureHandler.connFeatureTable(client, tableNameIn)
+    tcF = FeatureHandler.connClassifierTable(client, tableNameF)
+    tcW = FeatureHandler.connClassifierTable(client, tableNameW)
+    tcL = FeatureHandler.connClassifierTable(client, tableNameL)
 
     try:
         message += 'Loading classifier\n'

@@ -127,10 +127,10 @@ def trainClassifier(client, scriptParams):
     message += 'tableNameOutW:' + tableNameOutW + '\n'
     message += 'tableNameOutL:' + tableNameOutL + '\n'
 
-    tcIn = FeatureHandler.connect(client, tableNameIn)
-    tcOutF = FeatureHandler.connect(client, tableNameOutF)
-    tcOutW = FeatureHandler.connect(client, tableNameOutW)
-    tcOutL = FeatureHandler.connect(client, tableNameOutL)
+    tcIn = FeatureHandler.connFeatureTable(client, tableNameIn)
+    tcOutF = FeatureHandler.connClassifierTable(client, tableNameOutF)
+    tcOutW = FeatureHandler.connClassifierTable(client, tableNameOutW)
+    tcOutL = FeatureHandler.connClassifierTable(client, tableNameOutL)
 
     try:
         # Training
