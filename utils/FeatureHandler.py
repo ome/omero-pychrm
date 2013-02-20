@@ -65,17 +65,13 @@ def featureSizes(names):
     return featSizes
 
 
-def connect(client = None, tableName = None):
-    user = 'test1'
-    passwd = 'test1'
-    if not tableName:
-        tableName = '/test.h5'
-    host = 'localhost'
+def connFeatureTable(client, tableName):
+    tc = FeatureTableConnection(client=client, tableName=tableName)
+    return tc
 
-    if client:
-        tc = FeatureTableConnection(client=client, tableName=tableName)
-    else:
-        tc = FeatureTableConnection(user, passwd, host, tableName=tableName)
+
+def connClassifierTable(client, tableName):
+    tc = TableConnection(client=client, tableName=tableName)
     return tc
 
 

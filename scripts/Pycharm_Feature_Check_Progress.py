@@ -50,7 +50,7 @@ def processImages(client, scriptParams):
 
     tableName = '/Pychrm/' + contextName + '/SmallFeatureSet.h5'
     message += 'tableName:' + tableName + '\n'
-    tc = FeatureHandler.connect(client, tableName)
+    tc = FeatureHandler.connFeatureTable(client, tableName)
 
     try:
         # Get the datasets
