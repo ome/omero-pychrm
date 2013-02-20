@@ -192,6 +192,22 @@ class TableConnection(object):
         return self.table
 
 
+    def getHeaders(self):
+        """
+        Get a set of empty columns corresponding to the table schema
+        @return a set of empty table columns
+        """
+        return self.table.getHeaders()
+
+
+    def getNumberOfRows(self):
+        """
+        Get the number of rows
+        @return the number of rows in the table
+        """
+        return self.table.getNumberOfRows()
+
+
     def chunkedRead(self, colNumbers, start, stop, chunk):
         """
         Split a call to table.read(), into multiple chunks to limit the number
@@ -361,14 +377,6 @@ class FeatureTableConnection(TableConnection):
         """
         columns = self.table.getHeaders()
         return columns[:(len(columns) / 2)]
-
-
-    def getNumberOfRows(self):
-        """
-        Get the number of rows
-        @return the number of rows in the table
-        """
-        return self.table.getNumberOfRows()
 
 
     def addData(self, cols, copy=True):
