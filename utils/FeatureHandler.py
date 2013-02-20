@@ -23,6 +23,8 @@ CLASS_LABELS_TABLE = '/ClassLabels.h5'
 # Feature handling
 ######################################################################
 
+# Maximum number of rows to read/write in one go
+CHUNK_SIZE = 100
 
 def parseFeatureName(name):
     """
@@ -211,17 +213,17 @@ def saveClassifierTables(tc1, tc2, tc3,
     cols1[0].values = ids
     cols1[1].values = classIds
     cols1[2].values = featureMatrix
-    t1.addData(cols1)
+    tc1.chunkedAddData(cols1, CHUNK_SIZE)
 
     cols2 = tc2.getHeaders()
     cols2[0].values = featureNames
     cols2[1].values = weights
-    t2.addData(cols2)
+    tc2.chunkedAddData(cols2, CHUNK_SIZE)
 
     cols3 = tc3.getHeaders()
     cols3[0].values = range(len(classNames))
     cols3[1].values = classNames
-    t3.addData(cols3)
+    tc3.chunkedAddData(cols3, CHUNK_SIZE)
 
 
 def loadClassifierTables(tc1, tc2, tc3):

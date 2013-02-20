@@ -234,6 +234,39 @@ class TableConnection(object):
         return data
 
 
+    def chunkedAddData(self, columns, chunk):
+        """
+        Split a call to table.addData(), into multiple chunks to limit the
+        number of rows added in one go.
+        @param columns A full list of columns holding data to be added
+        @param chunk The maximum number of rows to write in each call
+        @return the number of rows written
+        """
+        nv = [len(c.values) for c in columns]
+        if len(set(nv)) != 1:
+            raise Exception('All columns must be the same length, received: %s'
+                            % nv)
+        nv = nv[0]
+
+        headers = self.table.getHeaders()
+        if len(columns) != len(headers) or \
+                [h.name for h in headers] != [c.name for c in columns] or \
+                [type(h) for h in headers] != [type(c) for c in columns]:
+            raise Exception('Mismatch between columns and table headers')
+
+        p = 0
+        q = 0
+        p, q = q, min(q + chunk, nv)
+
+        while p < nv:
+            for (h, c) in izip(headers, columns):
+                h.values = c.values[p:q]
+            self.table.addData(headers)
+            p, q = q, min(q + chunk, nv)
+
+        return p
+
+
 
 class FeatureTableConnection(TableConnection):
     """
