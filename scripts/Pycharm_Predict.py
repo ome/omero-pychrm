@@ -235,21 +235,21 @@ def runScript():
             description='List of Dataset IDs to be predicted').ofType(rlong(0)),
 
         scripts.Long(
-            'Training_Project_ID', optional=False, grouping='1',
+            'Training_Project_ID', optional=False, grouping='2',
             description='Project ID used for training'),
 
-        scripts.String(
-            'Context_Name', optional=False, grouping='1',
-            description='The name of the classification context.',
-            default='Example'),
-
         scripts.Bool(
-            'Comment_Images', optional=False, grouping='1',
+            'Comment_Images', optional=False, grouping='4',
             description='Add predictions as image comments', default=False),
 
         scripts.Bool(
-            'Tag_Images', optional=False, grouping='1',
+            'Tag_Images', optional=False, grouping='4',
             description='Tag images with predictions', default=False),
+
+        scripts.String(
+            'Context_Name', optional=False, grouping='3',
+            description='The name of the classification context.',
+            default='Example'),
 
         version = '0.0.1',
         authors = ['Simon Li', 'OME Team'],
