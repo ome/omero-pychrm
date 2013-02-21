@@ -91,13 +91,19 @@ def formatPredResult(r):
          ' '.join(['%.3e' % p for p in r.marginal_probabilities]))
 
 
-def addPredictionsAsComments(tc, prediction, dsId, commentImages):
+def addPredictionsToImages(tc, prediction, dsId, commentImages, tagSet):
     """
     Add a comment to the dataset containing the prediction results.
     @param commentImages If true add comment to individual images as well
     as the dataset
+    @param tagSet If provided then tag images with the predicted label
     """
     dsComment = ''
+
+    tagMap = {}
+    if tagSet:
+        for tag in tagSet.listTagsInTagset():
+            tagMap[tag.getValue()] = tag
 
     for r in prediction.individual_results:
         c = formatPredResult(r)
@@ -107,6 +113,10 @@ def addPredictionsAsComments(tc, prediction, dsId, commentImages):
             FeatureHandler.addCommentTo(tc, c, 'Image', imId)
         im = tc.conn.getObject('Image', imId)
         dsComment += im.getName() + ' ' + c + '\n'
+
+        if tagMap:
+            tag = tagMap[r.predicted_class_name]._obj
+            FeatureHandler.addTagTo(tc, tag, 'Image', imId)
 
     FeatureHandler.addCommentTo(tc, dsComment, 'Dataset', dsId)
 
@@ -154,6 +164,7 @@ def predict(client, scriptParams):
     dataType = scriptParams['Data_Type']
     predictIds = scriptParams['IDs']
     commentImages = scriptParams['Comment_Images']
+    tagImages = scriptParams['Tag_Images']
 
     contextName = scriptParams['Context_Name']
 
@@ -178,6 +189,9 @@ def predict(client, scriptParams):
         message += 'Loading classifier\n'
         trainProject = tcIn.conn.getObject('Project', projectId)
         trainFts, weights = loadClassifier(tcF, tcW, tcL, trainProject)
+        classifierName = FeatureHandler.CLASSIFIER_PYCHRM_NAMESPACE
+        tagSet = FeatureHandler.getClassifierTagSet(
+            tcF, classifierName, trainProject.getName(), trainProject)
 
         # Predict
         message += 'Predicting\n'
@@ -187,7 +201,8 @@ def predict(client, scriptParams):
             message += 'Predicting dataset id:%d\n' % ds.getId()
             pred, msg = predictDataset(tcIn, trainFts, ds, weights)
             message += msg
-            addPredictionsAsComments(tcIn, pred, ds.getId(), commentImages)
+            addPredictionsToImages(tcIn, pred, ds.getId(),
+                                   commentImages, tagSet)
 
     except:
         print message
@@ -231,6 +246,10 @@ def runScript():
         scripts.Bool(
             'Comment_Images', optional=False, grouping='1',
             description='Add predictions as image comments', default=False),
+
+        scripts.Bool(
+            'Tag_Images', optional=False, grouping='1',
+            description='Tag images with predictions', default=False),
 
         version = '0.0.1',
         authors = ['Simon Li', 'OME Team'],
