@@ -13,7 +13,10 @@ from omero.rtypes import wrap
 ######################################################################
 CLASSIFIER_PARENT_NAMESPACE = '/classifier'
 CLASSIFIER_LABEL_NAMESPACE = '/label'
+
 PYCHRM_NAMESPACE = '/testing/pychrm'
+CLASSIFIER_PYCHRM_NAMESPACE = CLASSIFIER_PARENT_NAMESPACE + PYCHRM_NAMESPACE
+
 SMALLFEATURES_TABLE = '/SmallFeatureSet.h5'
 
 CLASS_FEATURES_TABLE = '/ClassFeatures.h5'
@@ -338,8 +341,7 @@ def createClassifierTagSet(tc, classifierName, instanceName, labels,
     us = tc.conn.getUpdateService()
 
     tagSet = omero.model.TagAnnotationI()
-    instanceNs = '/'.join([CLASSIFIER_PARENT_NAMESPACE, classifierName,
-                           instanceName])
+    instanceNs = classifierName + '/' + instanceName
     tagSet.setTextValue(wrap(instanceNs));
     tagSet.setNs(wrap(omero.constants.metadata.NSINSIGHTTAGSET));
     tagSet.setDescription(wrap('Classification labels for ' + instanceNs))
