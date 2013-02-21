@@ -65,6 +65,11 @@ def createWeights(tcIn, tcF, tcW, tcL, project, featureThreshold):
     FeatureHandler.addFileAnnotationTo(tcL, tcL.table, project)
 
     message += 'Saved classifier\n'
+
+    ns = FeatureHandler.createClassifierTagSet(
+        tcL, FeatureHandler.PYCHRM_NAMESPACE, project.getName(), classNames,
+        project)
+    message += 'Created tagset: %s\n' % ns
     return trainFts, weights, message
 
 
