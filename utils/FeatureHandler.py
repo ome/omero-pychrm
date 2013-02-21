@@ -333,6 +333,26 @@ def addCommentTo(tc, comment, objType, objId):
     return 'Attached comment to %s id:%d\n' % (objType, objId)
 
 
+def addTagTo(tc, tag, objType, objId):
+    """
+    Add a tag to an object (dataset/project/image)
+    """
+    if objType == "Dataset":
+        annLink = omero.model.DatasetAnnotationLinkI()
+        annLink.link(omero.model.DatasetI(objId, False), tag)
+    elif objType == "Project":
+        annLink = omero.model.ProjectAnnotationLinkI()
+        annLink.link(omero.model.ProjectI(objId, False), tag)
+    elif objType == "Image":
+        annLink = omero.model.ImageAnnotationLinkI()
+        annLink.link(omero.model.ImageI(objId, False), tag)
+    else:
+        raise Exception('Unexpected object type: %s' % oclass)
+
+    annLink = tc.conn.getUpdateService().saveAndReturnObject(annLink)
+    return 'Attached tag to %s id:%d\n' % (objType, objId)
+
+
 def createClassifierTagSet(tc, classifierName, instanceName, labels,
                            project = None):
     """
@@ -366,4 +386,15 @@ def createClassifierTagSet(tc, classifierName, instanceName, labels,
         us.saveAndReturnObject(annLink);
 
     return instanceNs
+
+
+def getClassifierTagSet(tc, classifierName, instanceName, project):
+    ns = classifierName + '/' + instanceName
+    for ann in project.listAnnotations():
+        if ann.getNs() == omero.constants.metadata.NSINSIGHTTAGSET and \
+                ann.getValue() == ns and \
+                isinstance(ann, omero.gateway.TagAnnotationWrapper):
+            return ann
+
+    return None
 
