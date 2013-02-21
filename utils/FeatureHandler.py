@@ -330,7 +330,8 @@ def addCommentTo(tc, comment, objType, objId):
     return 'Attached comment to %s id:%d\n' % (objType, objId)
 
 
-def createClassifierTagSet(tc, classifierName, instanceName, labels):
+def createClassifierTagSet(tc, classifierName, instanceName, labels,
+                           project = None):
     """
     Create a tagset and labels associated with an instance of a classifier
     """
@@ -357,5 +358,10 @@ def createClassifierTagSet(tc, classifierName, instanceName, labels):
         linkR = us.saveAndReturnObject(link)
         assert(linkR)
 
+    if project:
+        annLink = omero.model.ProjectAnnotationLinkI()
+        annLink.link(omero.model.ProjectI(project.getId(), False), tagSetR)
+        us.saveAndReturnObject(annLink);
 
+    return instanceNs
 
