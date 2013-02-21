@@ -5,7 +5,7 @@ from itertools import izip
 from TableConnection import FeatureTableConnection, TableConnectionError
 from TableConnection import TableConnection
 import omero
-from omero.rtypes import rstring
+from omero.rtypes import wrap
 
 
 ######################################################################
@@ -271,8 +271,8 @@ def addFileAnnotationTo(tc, table, obj):
 
     fa = omero.model.FileAnnotationI()
     fa.setFile(tfile)
-    fa.setNs(rstring(PYCHRM_NAMESPACE))
-    fa.setDescription(rstring(PYCHRM_NAMESPACE + ':' + tfile.getName().val))
+    fa.setNs(wrap(PYCHRM_NAMESPACE))
+    fa.setDescription(wrap(PYCHRM_NAMESPACE + ':' + tfile.getName().val))
 
     if oclass == 'Dataset':
         annLink = omero.model.DatasetAnnotationLinkI()
@@ -309,8 +309,8 @@ def addCommentTo(tc, comment, objType, objId):
     Add a comment to an object (dataset/project/image)
     """
     ca = omero.model.CommentAnnotationI()
-    ca.setNs(rstring(PYCHRM_NAMESPACE))
-    ca.setTextValue(rstring(comment))
+    ca.setNs(wrap(PYCHRM_NAMESPACE))
+    ca.setTextValue(wrap(comment))
 
     if objType == "Dataset":
         annLink = omero.model.DatasetAnnotationLinkI()
