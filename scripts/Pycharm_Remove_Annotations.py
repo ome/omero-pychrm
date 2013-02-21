@@ -15,15 +15,18 @@ for p in ['/utils']:
 import FeatureHandler
 
 
-def removeAnnotations(conn, obj, rmTables, rmComments):
+def removeAnnotations(conn, obj, rmTables, rmComments, rmTags):
     rmIds = []
     for ann in obj.listAnnotations():
-        if ann.getNs() != FeatureHandler.PYCHRM_NAMESPACE:
-            continue
-        if rmTables and isinstance(ann, FileAnnotationWrapper):
-            rmIds.append(ann.getId())
-        if rmComments and isinstance(ann, CommentAnnotationWrapper):
-            rmIds.append(ann.getId())
+        if ann.getNs() == FeatureHandler.PYCHRM_NAMESPACE:
+            if (rmTables and isinstance(ann, FileAnnotationWrapper)) or \
+                (rmComments and isinstance(ann, CommentAnnotationWrapper)):
+                rmIds.append(ann.getId())
+
+        if ann.getNs() and ann.getNs().startswith(
+            FeatureHandler.CLASSIFIER_PYCHRM_NAMESPACE + '/'):
+            if (rmTags and isinstance(ann, TagAnnotationWrapper)):
+                rmIds.append(ann.getId())
 
     if rmIds:
         conn.deleteObjects('Annotation', rmIds)
@@ -34,7 +37,7 @@ def removeAnnotations(conn, obj, rmTables, rmComments):
     try:
         # Keep recursing until listChildren not implemented
         for ch in obj.listChildren():
-            message += removeAnnotations(conn, ch, rmTables, rmComments)
+            message += removeAnnotations(conn, ch, rmTables, rmComments, rmTags)
     except NotImplementedError:
         pass
 
@@ -49,6 +52,7 @@ def processObjects(client, scriptParams):
     ids = scriptParams['IDs']
     rmTables = scriptParams['Remove_tables']
     rmComments = scriptParams['Remove_comments']
+    rmTags = scriptParams['Remove_tags']
 
     # Get the images or datasets
     conn = BlitzGateway(client_obj=client)
@@ -58,7 +62,7 @@ def processObjects(client, scriptParams):
         return None, message
 
     for o in objects:
-        message += removeAnnotations(conn, o, rmTables, rmComments)
+        message += removeAnnotations(conn, o, rmTables, rmComments, rmTags)
 
     return message
 
@@ -88,6 +92,10 @@ def runScript():
         scripts.Bool(
             'Remove_comments', optional=False, grouping='1',
             description='Remove comments', default=False),
+
+        scripts.Bool(
+            'Remove_tags', optional=False, grouping='1',
+            description='Remove tags', default=False),
 
         version = '0.0.1',
         authors = ['Simon Li', 'OME Team'],
