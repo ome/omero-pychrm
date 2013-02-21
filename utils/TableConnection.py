@@ -107,11 +107,19 @@ class TableConnection(object):
                                        (tableName, tableId))
 
         if self.tableId == ofile.getId():
+            if not self.table:
+                print 'WARNING: Expected table to be already open'
+        else:
+            self.table = None
+        if self.table:
             print 'Using existing connection to table name:%s id:%d' % \
                 (tableName, tableId)
         else:
             self.closeTable()
             self.table = self.res.openTable(ofile._obj)
+            if not self.table:
+                # This is probably OMERO playing up for some reason
+                raise Exception('Failed to open table %d' % self.tableId)
             self.tableId = ofile.getId()
             print 'Opened table name:%s id:%d' % (tableName, self.tableId)
 

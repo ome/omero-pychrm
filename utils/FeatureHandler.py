@@ -11,6 +11,8 @@ from omero.rtypes import wrap
 ######################################################################
 # Constants for OMERO
 ######################################################################
+CLASSIFIER_PARENT_NAMESPACE = '/classifier'
+CLASSIFIER_LABEL_NAMESPACE = '/label'
 PYCHRM_NAMESPACE = '/testing/pychrm'
 SMALLFEATURES_TABLE = '/SmallFeatureSet.h5'
 
@@ -326,6 +328,34 @@ def addCommentTo(tc, comment, objType, objId):
 
     annLink = tc.conn.getUpdateService().saveAndReturnObject(annLink)
     return 'Attached comment to %s id:%d\n' % (objType, objId)
+
+
+def createClassifierTagSet(tc, classifierName, instanceName, labels):
+    """
+    Create a tagset and labels associated with an instance of a classifier
+    """
+    us = tc.conn.getUpdateService()
+
+    tagSet = omero.model.TagAnnotationI()
+    instanceNs = '/'.join([CLASSIFIER_PARENT_NAMESPACE, classifierName,
+                           instanceName])
+    tagSet.setTextValue(wrap(instanceNs));
+    tagSet.setNs(wrap(omero.constants.metadata.NSINSIGHTTAGSET));
+    tagSet.setDescription(wrap('Classification labels for ' + instanceNs))
+    tagSetR = us.saveAndReturnObject(tagSet);
+    tagSetR.unload()
+
+    for lb in labels:
+        tag = omero.model.TagAnnotationI()
+        tag.setTextValue(wrap(lb));
+        tag.setNs(wrap(instanceNs));
+        tagR = us.saveAndReturnObject(tag);
+
+        link = omero.model.AnnotationAnnotationLinkI()
+        link.setChild(tagR)
+        link.setParent(tagSetR)
+        linkR = us.saveAndReturnObject(link)
+        assert(linkR)
 
 
 
