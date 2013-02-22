@@ -122,11 +122,11 @@ def runScript():
 
         scripts.Bool(
             'Remove_comments', optional=False, grouping='1',
-            description='Remove comments', default=False),
+            description='Remove comments', default=True),
 
         scripts.Bool(
             'Remove_tags', optional=False, grouping='1',
-            description='Remove tags', default=False),
+            description='Remove tags', default=True),
 
         version = '0.0.1',
         authors = ['Simon Li', 'OME Team'],
