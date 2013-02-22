@@ -98,6 +98,7 @@ def addPredictionsToImages(tc, prediction, dsId, commentImages, tagSet):
     as the dataset
     @param tagSet If provided then tag images with the predicted label
     """
+    message = ''
     dsComment = ''
 
     tagMap = {}
@@ -110,15 +111,16 @@ def addPredictionsToImages(tc, prediction, dsId, commentImages, tagSet):
         imId = long(r.source_file)
 
         if commentImages:
-            FeatureHandler.addCommentTo(tc, c, 'Image', imId)
+            message += FeatureHandler.addCommentTo(tc, c, 'Image', imId)
         im = tc.conn.getObject('Image', imId)
         dsComment += im.getName() + ' ' + c + '\n'
 
         if tagMap:
             tag = tagMap[r.predicted_class_name]._obj
-            FeatureHandler.addTagTo(tc, tag, 'Image', imId)
+            message += FeatureHandler.addTagTo(tc, tag, 'Image', imId)
 
-    FeatureHandler.addCommentTo(tc, dsComment, 'Dataset', dsId)
+    message += FeatureHandler.addCommentTo(tc, dsComment, 'Dataset', dsId)
+    return message
 
 
 def reduceFeatures(fts, weights):
@@ -207,8 +209,8 @@ def predict(client, scriptParams):
             message += 'Predicting dataset id:%d\n' % ds.getId()
             pred, msg = predictDataset(tcIn, trainFts, ds, weights)
             message += msg
-            addPredictionsToImages(tcIn, pred, ds.getId(),
-                                   commentImages, tagSet)
+            message += addPredictionsToImages(tcIn, pred, ds.getId(),
+                                              commentImages, tagSet)
 
     except:
         print message
