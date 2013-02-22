@@ -5,7 +5,7 @@ from itertools import izip
 from TableConnection import FeatureTableConnection, TableConnectionError
 from TableConnection import TableConnection
 import omero
-from omero.rtypes import wrap
+from omero.rtypes import wrap, unwrap
 
 
 ######################################################################
@@ -337,6 +337,12 @@ def addTagTo(tc, tag, objType, objId):
     """
     Add a tag to an object (dataset/project/image)
     """
+    obj = tc.conn.getObject(objType, objId)
+    for a in obj.listAnnotations():
+        if isinstance(a, omero.gateway.TagAnnotationWrapper) and \
+                unwrap(tag.getId()) == a.getId():
+            return 'Already tagged %s id:%d\n' % (objType, objId)
+
     if objType == "Dataset":
         annLink = omero.model.DatasetAnnotationLinkI()
         annLink.link(omero.model.DatasetI(objId, False), tag)
@@ -347,7 +353,7 @@ def addTagTo(tc, tag, objType, objId):
         annLink = omero.model.ImageAnnotationLinkI()
         annLink.link(omero.model.ImageI(objId, False), tag)
     else:
-        raise Exception('Unexpected object type: %s' % oclass)
+        raise Exception('Unexpected object type: %s' % objType)
 
     annLink = tc.conn.getUpdateService().saveAndReturnObject(annLink)
     return 'Attached tag to %s id:%d\n' % (objType, objId)
