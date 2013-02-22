@@ -2,9 +2,10 @@
 #
 from omero import scripts
 from omero.util import script_utils
-from omero.rtypes import rstring, rlong
+from omero.rtypes import rstring, rlong, wrap, unwrap
 from omero.gateway import BlitzGateway
 from omero.gateway import FileAnnotationWrapper, CommentAnnotationWrapper
+import omero
 from datetime import datetime
 
 import sys, os
@@ -16,16 +17,14 @@ import FeatureHandler
 
 
 def removeAnnotations(conn, obj, rmTables, rmComments, rmTags):
+    """
+    Remove annotations that are in one of the PyChrm namespaces
+    """
     rmIds = []
     for ann in obj.listAnnotations():
         if ann.getNs() == FeatureHandler.PYCHRM_NAMESPACE:
             if (rmTables and isinstance(ann, FileAnnotationWrapper)) or \
                 (rmComments and isinstance(ann, CommentAnnotationWrapper)):
-                rmIds.append(ann.getId())
-
-        if ann.getNs() and ann.getNs().startswith(
-            FeatureHandler.CLASSIFIER_PYCHRM_NAMESPACE + '/'):
-            if (rmTags and isinstance(ann, TagAnnotationWrapper)):
                 rmIds.append(ann.getId())
 
     if rmIds:
@@ -34,6 +33,9 @@ def removeAnnotations(conn, obj, rmTables, rmComments, rmTags):
     message = 'Removed annotations:%s from %s id:%d\n' % \
         (rmIds, obj.OMERO_CLASS, obj.getId())
 
+    if rmTags:
+        message += removeTagAnnotations(conn, obj)
+
     try:
         # Keep recursing until listChildren not implemented
         for ch in obj.listChildren():
@@ -41,6 +43,35 @@ def removeAnnotations(conn, obj, rmTables, rmComments, rmTags):
     except NotImplementedError:
         pass
 
+    return message
+
+
+def removeTagAnnotations(conn, obj):
+    """
+    Unlink tag annotations, but do not delete the tags
+    """
+    linkType = obj.OMERO_CLASS + 'AnnotationLink'
+    q = 'select oal from %s as oal join ' \
+        'fetch oal.child as ann where oal.parent.id = :parentid and ' \
+        'oal.child.ns like :ns' % linkType
+    params = omero.sys.Parameters()
+    params.map = {
+        'parentid': wrap(obj.getId()),
+        'ns': wrap(FeatureHandler.CLASSIFIER_PYCHRM_NAMESPACE + '/%')
+        }
+    anns = conn.getQueryService().findAllByQuery(q, params)
+
+    rmIds = []
+    rmTags = []
+    for ann in anns:
+        if isinstance(ann.child, omero.model.TagAnnotation):
+            rmIds.append(unwrap(ann.getId()))
+            rmTags.append(unwrap(ann.child.getTextValue()))
+
+    if rmIds:
+        conn.deleteObjects(linkType, rmIds)
+
+    message = 'Removed tags: %s from id:%d' % (rmTags, obj.getId())
     return message
 
 
