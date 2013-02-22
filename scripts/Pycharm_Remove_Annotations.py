@@ -2,9 +2,10 @@
 #
 from omero import scripts
 from omero.util import script_utils
-from omero.rtypes import rstring, rlong
+from omero.rtypes import rstring, rlong, wrap, unwrap
 from omero.gateway import BlitzGateway
 from omero.gateway import FileAnnotationWrapper, CommentAnnotationWrapper
+import omero
 from datetime import datetime
 
 import sys, os
@@ -15,21 +16,63 @@ for p in ['/utils']:
 import FeatureHandler
 
 
-def removeAnnotations(conn, obj, rmTables, rmComments):
-    namespace = FeatureHandler.NAMESPACE
+def removeAnnotations(conn, obj, rmTables, rmComments, rmTags):
+    """
+    Remove annotations that are in one of the PyChrm namespaces
+    """
     rmIds = []
     for ann in obj.listAnnotations():
-        if ann.getNs() != namespace:
-            continue
-        if rmTables and isinstance(ann, FileAnnotationWrapper):
-            rmIds.append(ann.getId())
-        if rmComments and isinstance(ann, CommentAnnotationWrapper):
-            rmIds.append(ann.getId())
+        if ann.getNs() == FeatureHandler.PYCHRM_NAMESPACE:
+            if (rmTables and isinstance(ann, FileAnnotationWrapper)) or \
+                (rmComments and isinstance(ann, CommentAnnotationWrapper)):
+                rmIds.append(ann.getId())
 
     if rmIds:
         conn.deleteObjects('Annotation', rmIds)
-    return 'Removed annotations:%s from %s id:%d\n' % \
+
+    message = 'Removed annotations:%s from %s id:%d\n' % \
         (rmIds, obj.OMERO_CLASS, obj.getId())
+
+    if rmTags:
+        message += removeTagAnnotations(conn, obj)
+
+    try:
+        # Keep recursing until listChildren not implemented
+        for ch in obj.listChildren():
+            message += removeAnnotations(conn, ch, rmTables, rmComments, rmTags)
+    except NotImplementedError:
+        pass
+
+    return message
+
+
+def removeTagAnnotations(conn, obj):
+    """
+    Unlink tag annotations, but do not delete the tags
+    """
+    linkType = obj.OMERO_CLASS + 'AnnotationLink'
+    q = 'select oal from %s as oal join ' \
+        'fetch oal.child as ann where oal.parent.id = :parentid and ' \
+        'oal.child.ns like :ns' % linkType
+    params = omero.sys.Parameters()
+    params.map = {
+        'parentid': wrap(obj.getId()),
+        'ns': wrap(FeatureHandler.CLASSIFIER_PYCHRM_NAMESPACE + '/%')
+        }
+    anns = conn.getQueryService().findAllByQuery(q, params)
+
+    rmIds = []
+    rmTags = []
+    for ann in anns:
+        if isinstance(ann.child, omero.model.TagAnnotation):
+            rmIds.append(unwrap(ann.getId()))
+            rmTags.append(unwrap(ann.child.getTextValue()))
+
+    if rmIds:
+        conn.deleteObjects(linkType, rmIds)
+
+    message = 'Removed tags: %s from id:%d' % (rmTags, obj.getId())
+    return message
 
 
 def processObjects(client, scriptParams):
@@ -40,6 +83,7 @@ def processObjects(client, scriptParams):
     ids = scriptParams['IDs']
     rmTables = scriptParams['Remove_tables']
     rmComments = scriptParams['Remove_comments']
+    rmTags = scriptParams['Remove_tags']
 
     # Get the images or datasets
     conn = BlitzGateway(client_obj=client)
@@ -49,10 +93,7 @@ def processObjects(client, scriptParams):
         return None, message
 
     for o in objects:
-        message += removeAnnotations(conn, o, rmTables, rmComments)
-        if dataType == 'Dataset':
-            for im in o.listChildren():
-                message += removeAnnotations(conn, im, rmTables, rmComments)
+        message += removeAnnotations(conn, o, rmTables, rmComments, rmTags)
 
     return message
 
@@ -62,7 +103,7 @@ def runScript():
     The main entry point of the script, as called by the client via the scripting service, passing the required parameters. 
     """
 
-    dataTypes = [rstring('Dataset'),rstring('Image')]
+    dataTypes = [rstring('Project'), rstring('Dataset'), rstring('Image')]
     client = scripts.client(
         'Pycharm_Remove_Annotations.py',
         'Remove Pychrm annotations from Datasets and contained Images, or just Images',
@@ -81,7 +122,11 @@ def runScript():
 
         scripts.Bool(
             'Remove_comments', optional=False, grouping='1',
-            description='Remove comments', default=False),
+            description='Remove comments', default=True),
+
+        scripts.Bool(
+            'Remove_tags', optional=False, grouping='1',
+            description='Remove tags', default=True),
 
         version = '0.0.1',
         authors = ['Simon Li', 'OME Team'],

@@ -107,11 +107,19 @@ class TableConnection(object):
                                        (tableName, tableId))
 
         if self.tableId == ofile.getId():
+            if not self.table:
+                print 'WARNING: Expected table to be already open'
+        else:
+            self.table = None
+        if self.table:
             print 'Using existing connection to table name:%s id:%d' % \
                 (tableName, tableId)
         else:
             self.closeTable()
             self.table = self.res.openTable(ofile._obj)
+            if not self.table:
+                # This is probably OMERO playing up for some reason
+                raise Exception('Failed to open table %d' % self.tableId)
             self.tableId = ofile.getId()
             print 'Opened table name:%s id:%d' % (tableName, self.tableId)
 
@@ -192,6 +200,22 @@ class TableConnection(object):
         return self.table
 
 
+    def getHeaders(self):
+        """
+        Get a set of empty columns corresponding to the table schema
+        @return a set of empty table columns
+        """
+        return self.table.getHeaders()
+
+
+    def getNumberOfRows(self):
+        """
+        Get the number of rows
+        @return the number of rows in the table
+        """
+        return self.table.getNumberOfRows()
+
+
     def chunkedRead(self, colNumbers, start, stop, chunk):
         """
         Split a call to table.read(), into multiple chunks to limit the number
@@ -216,6 +240,39 @@ class TableConnection(object):
             p, q = q, min(q + chunk, stop)
 
         return data
+
+
+    def chunkedAddData(self, columns, chunk):
+        """
+        Split a call to table.addData(), into multiple chunks to limit the
+        number of rows added in one go.
+        @param columns A full list of columns holding data to be added
+        @param chunk The maximum number of rows to write in each call
+        @return the number of rows written
+        """
+        nv = [len(c.values) for c in columns]
+        if len(set(nv)) != 1:
+            raise Exception('All columns must be the same length, received: %s'
+                            % nv)
+        nv = nv[0]
+
+        headers = self.table.getHeaders()
+        if len(columns) != len(headers) or \
+                [h.name for h in headers] != [c.name for c in columns] or \
+                [type(h) for h in headers] != [type(c) for c in columns]:
+            raise Exception('Mismatch between columns and table headers')
+
+        p = 0
+        q = 0
+        p, q = q, min(q + chunk, nv)
+
+        while p < nv:
+            for (h, c) in izip(headers, columns):
+                h.values = c.values[p:q]
+            self.table.addData(headers)
+            p, q = q, min(q + chunk, nv)
+
+        return p
 
 
 
@@ -361,14 +418,6 @@ class FeatureTableConnection(TableConnection):
         """
         columns = self.table.getHeaders()
         return columns[:(len(columns) / 2)]
-
-
-    def getNumberOfRows(self):
-        """
-        Get the number of rows
-        @return the number of rows in the table
-        """
-        return self.table.getNumberOfRows()
 
 
     def addData(self, cols, copy=True):

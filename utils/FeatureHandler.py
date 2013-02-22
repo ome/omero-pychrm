@@ -4,18 +4,32 @@
 from itertools import izip
 from TableConnection import FeatureTableConnection, TableConnectionError
 from TableConnection import TableConnection
+import omero
+from omero.rtypes import wrap, unwrap
 
 
 ######################################################################
 # Constants for OMERO
 ######################################################################
-NAMESPACE = '/testing/pychrm'
+CLASSIFIER_PARENT_NAMESPACE = '/classifier'
+CLASSIFIER_LABEL_NAMESPACE = '/label'
+
+PYCHRM_NAMESPACE = '/testing/pychrm'
+CLASSIFIER_PYCHRM_NAMESPACE = CLASSIFIER_PARENT_NAMESPACE + PYCHRM_NAMESPACE
+
+SMALLFEATURES_TABLE = '/SmallFeatureSet.h5'
+
+CLASS_FEATURES_TABLE = '/ClassFeatures.h5'
+CLASS_WEIGHTS_TABLE = '/Weights.h5'
+CLASS_LABELS_TABLE = '/ClassLabels.h5'
 
 
 ######################################################################
 # Feature handling
 ######################################################################
 
+# Maximum number of rows to read/write in one go
+CHUNK_SIZE = 100
 
 def parseFeatureName(name):
     """
@@ -56,17 +70,13 @@ def featureSizes(names):
     return featSizes
 
 
-def connect(client = None, tableName = None):
-    user = 'test1'
-    passwd = 'test1'
-    if not tableName:
-        tableName = '/test.h5'
-    host = 'localhost'
+def connFeatureTable(client, tableName):
+    tc = FeatureTableConnection(client=client, tableName=tableName)
+    return tc
 
-    if client:
-        tc = FeatureTableConnection(client=client, tableName=tableName)
-    else:
-        tc = FeatureTableConnection(user, passwd, host, tableName=tableName)
+
+def connClassifierTable(client, tableName):
+    tc = TableConnection(client=client, tableName=tableName)
     return tc
 
 
@@ -163,30 +173,234 @@ def loadFeatures(tc, id):
 
 
 ######################################################################
-# Image class handling
+# Save a classifier
 ######################################################################
 
 
-def createImageClassTable():
+def createClassifierTables(tc1, tc2, tc3, featureNames):
     """
-    Initialise an OMERO.table for storing image classification labels
-    and related data
+    Create a set of OMERO.tables for storing the state of a trained image
+    classifier. The first table stores the training samples with reduced
+    features and classes, the second stores a list of weights and feature
+    names, and the third stores the class IDs and class names
     """
-    user = 'test1'
-    passwd = 'test1'
-    tableName = '/test-imageClass.h5'
-    host = 'localhost'
-
-    tc = TableConnection(user, passwd, host, tableName)
-
-    schema = [
-        LongColumn('id'),
-        LongColumn('training label'),
-        LongColumn('predicted label'),
+    schema1 = [
+        omero.grid.LongColumn('id'),
+        omero.grid.LongColumn('label'),
+        omero.grid.DoubleArrayColumn('features', '', len(featureNames)),
         ]
-    tc.newTable(schema)
-    return tc
+    tc1.newTable(schema1)
+
+    schema2 = [
+        omero.grid.StringColumn('featurename', '', 1024),
+        omero.grid.DoubleColumn('weight'),
+        ]
+    tc2.newTable(schema2)
+
+    schema3 = [
+        omero.grid.LongColumn('classID'),
+        omero.grid.StringColumn('className', '', 1024),
+        ]
+    tc3.newTable(schema3)
 
 
+def saveClassifierTables(tc1, tc2, tc3,
+                         ids, classIds, featureMatrix,
+                         featureNames, weights, classNames):
+    """
+    Save the classifier state (reduced features, labels and weights)
+    """
+    cols1 = tc1.getHeaders()
+    cols1[0].values = ids
+    cols1[1].values = classIds
+    cols1[2].values = featureMatrix
+    tc1.chunkedAddData(cols1, CHUNK_SIZE)
 
+    cols2 = tc2.getHeaders()
+    cols2[0].values = featureNames
+    cols2[1].values = weights
+    tc2.chunkedAddData(cols2, CHUNK_SIZE)
+
+    cols3 = tc3.getHeaders()
+    cols3[0].values = range(len(classNames))
+    cols3[1].values = classNames
+    tc3.chunkedAddData(cols3, CHUNK_SIZE)
+
+
+def loadClassifierTables(tc1, tc2, tc3):
+    """
+    Load the classifier state (reduced features, labels and weights)
+    """
+    d1 = tc1.chunkedRead(
+        range(len(tc1.getHeaders())), 0, tc1.getNumberOfRows(), CHUNK_SIZE)
+    cols1 = d1.columns
+    ids = cols1[0].values
+    trainClassIds = cols1[1].values
+    featureMatrix = cols1[2].values
+
+    d2 = tc2.chunkedRead(
+        range(len(tc2.getHeaders())), 0, tc2.getNumberOfRows(), CHUNK_SIZE)
+    cols2 = d2.columns
+    featureNames = cols2[0].values
+    weights = cols2[1].values
+
+    d3 = tc3.chunkedRead(
+        range(len(tc3.getHeaders())), 0, tc3.getNumberOfRows(), CHUNK_SIZE)
+    cols3 = d3.columns
+    classIds = cols3[0].values
+    classNames = cols3[1].values
+
+    return {'ids': ids, 'trainClassIds': trainClassIds,
+            'featureMatrix': featureMatrix,
+            'featureNames': featureNames, 'weights': weights,
+            'classIds': classIds, 'classNames': classNames}
+
+
+######################################################################
+# Annotations
+######################################################################
+
+
+def addFileAnnotationTo(tc, table, obj):
+    """
+    Attach the annotation to an object (dataset/project) if not already attached
+    """
+    tfile = table.getOriginalFile()
+    oclass = obj.OMERO_CLASS
+
+    obj = tc.conn.getObject(oclass, obj.getId())
+    for a in obj.listAnnotations(PYCHRM_NAMESPACE):
+        if isinstance(a, omero.gateway.FileAnnotationWrapper):
+            if tfile.getId() == a._obj.getFile().getId():
+                return 'Already attached'
+
+    fa = omero.model.FileAnnotationI()
+    fa.setFile(tfile)
+    fa.setNs(wrap(PYCHRM_NAMESPACE))
+    fa.setDescription(wrap(PYCHRM_NAMESPACE + ':' + tfile.getName().val))
+
+    if oclass == 'Dataset':
+        annLink = omero.model.DatasetAnnotationLinkI()
+        annLink.link(omero.model.DatasetI(obj.getId(), False), fa)
+    elif oclass == 'Project':
+        annLink = omero.model.ProjectAnnotationLinkI()
+        annLink.link(omero.model.ProjectI(obj.getId(), False), fa)
+    else:
+        raise Exception('Unexpected object type: %s' % oclass)
+
+    annLink = tc.conn.getUpdateService().saveAndReturnObject(annLink)
+    return 'Attached file id:%d to %s id:%d\n' % \
+        (tfile.getId().getValue(), oclass, obj.getId())
+
+
+def getAttachedTableFile(tc, tableName, obj):
+    """
+    See if this object (dataset/project) has a table file annotation
+    """
+    # Refresh the dataset, as the cached view might not show the latest
+    # annotations
+    obj = tc.conn.getObject(obj.OMERO_CLASS, obj.getId())
+
+    for a in obj.listAnnotations(PYCHRM_NAMESPACE):
+        if isinstance(a, omero.gateway.FileAnnotationWrapper):
+            if tableName == a.getFileName():
+                return a._obj.getFile().getId().getValue()
+
+    return None
+
+
+def addCommentTo(tc, comment, objType, objId):
+    """
+    Add a comment to an object (dataset/project/image)
+    """
+    ca = omero.model.CommentAnnotationI()
+    ca.setNs(wrap(PYCHRM_NAMESPACE))
+    ca.setTextValue(wrap(comment))
+
+    if objType == "Dataset":
+        annLink = omero.model.DatasetAnnotationLinkI()
+        annLink.link(omero.model.DatasetI(objId, False), ca)
+    elif objType == "Project":
+        annLink = omero.model.ProjectAnnotationLinkI()
+        annLink.link(omero.model.ProjectI(objId, False), ca)
+    elif objType == "Image":
+        annLink = omero.model.ImageAnnotationLinkI()
+        annLink.link(omero.model.ImageI(objId, False), ca)
+    else:
+        raise Exception('Unexpected object type: %s' % oclass)
+
+    annLink = tc.conn.getUpdateService().saveAndReturnObject(annLink)
+    return 'Attached comment to %s id:%d\n' % (objType, objId)
+
+
+def addTagTo(tc, tag, objType, objId):
+    """
+    Add a tag to an object (dataset/project/image)
+    """
+    obj = tc.conn.getObject(objType, objId)
+    for a in obj.listAnnotations():
+        if isinstance(a, omero.gateway.TagAnnotationWrapper) and \
+                unwrap(tag.getId()) == a.getId():
+            return 'Already tagged %s id:%d\n' % (objType, objId)
+
+    if objType == "Dataset":
+        annLink = omero.model.DatasetAnnotationLinkI()
+        annLink.link(omero.model.DatasetI(objId, False), tag)
+    elif objType == "Project":
+        annLink = omero.model.ProjectAnnotationLinkI()
+        annLink.link(omero.model.ProjectI(objId, False), tag)
+    elif objType == "Image":
+        annLink = omero.model.ImageAnnotationLinkI()
+        annLink.link(omero.model.ImageI(objId, False), tag)
+    else:
+        raise Exception('Unexpected object type: %s' % objType)
+
+    annLink = tc.conn.getUpdateService().saveAndReturnObject(annLink)
+    return 'Attached tag to %s id:%d\n' % (objType, objId)
+
+
+def createClassifierTagSet(tc, classifierName, instanceName, labels,
+                           project = None):
+    """
+    Create a tagset and labels associated with an instance of a classifier
+    """
+    us = tc.conn.getUpdateService()
+
+    tagSet = omero.model.TagAnnotationI()
+    instanceNs = classifierName + '/' + instanceName
+    tagSet.setTextValue(wrap(instanceNs));
+    tagSet.setNs(wrap(omero.constants.metadata.NSINSIGHTTAGSET));
+    tagSet.setDescription(wrap('Classification labels for ' + instanceNs))
+    tagSetR = us.saveAndReturnObject(tagSet);
+    tagSetR.unload()
+
+    for lb in labels:
+        tag = omero.model.TagAnnotationI()
+        tag.setTextValue(wrap(lb));
+        tag.setNs(wrap(instanceNs));
+        tagR = us.saveAndReturnObject(tag);
+
+        link = omero.model.AnnotationAnnotationLinkI()
+        link.setChild(tagR)
+        link.setParent(tagSetR)
+        linkR = us.saveAndReturnObject(link)
+        assert(linkR)
+
+    if project:
+        annLink = omero.model.ProjectAnnotationLinkI()
+        annLink.link(omero.model.ProjectI(project.getId(), False), tagSetR)
+        us.saveAndReturnObject(annLink);
+
+    return instanceNs
+
+
+def getClassifierTagSet(tc, classifierName, instanceName, project):
+    ns = classifierName + '/' + instanceName
+    for ann in project.listAnnotations():
+        if ann.getNs() == omero.constants.metadata.NSINSIGHTTAGSET and \
+                ann.getValue() == ns and \
+                isinstance(ann, omero.gateway.TagAnnotationWrapper):
+            return ann
+
+    return None
 

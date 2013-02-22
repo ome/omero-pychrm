@@ -12,6 +12,10 @@ def process(client, scriptParams):
     prefix = scriptParams['File_Prefix']
     interval = scriptParams['Log_Interval']
     numMsgs = scriptParams['Number_Of_Messages']
+    keepAlive = scriptParams['Keep_Alive_Interval']
+
+    if keepAlive > 0:
+        client.enableKeepAlive(keepAlive)
 
     valid = frozenset(
         'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-')
@@ -24,6 +28,11 @@ def process(client, scriptParams):
     n = 0
     with NamedTemporaryFile(
         prefix=prefix, suffix='.txt', delete=False, bufsize=1) as tmpf:
+
+        tmpf.write('Session: %s\n session id: %s\n' %
+                   (client.getSession(), client.getSessionId()))
+        tmpf.write('ScriptParams: %s\n' % scriptParams)
+
         while n < numMsgs or numMsgs == 0:
             dstr = datetime.strftime(datetime.utcnow(),'%Y-%m-%d %H:%M:%S Z')
             tmpf.write('%d: %s\n' % (n, dstr))
@@ -57,6 +66,11 @@ def runScript():
             description='Number of messages, 0 for infinite.',
             default=10),
 
+        scripts.Long(
+            'Keep_Alive_Interval', optional=False, grouping='2', min=0,
+            description='Keep alive interval, 0 to disable.',
+            default=0),
+
         version = '0.0.1',
         authors = ['Simon Li', 'OME Team'],
         institutions = ['University of Dundee'],
@@ -66,7 +80,6 @@ def runScript():
     try:
         startTime = datetime.now()
         session = client.getSession()
-        #client.enableKeepAlive(60)
         scriptParams = {}
 
         # process the list of args above.
@@ -74,6 +87,7 @@ def runScript():
             if client.getInput(key):
                 scriptParams[key] = client.getInput(key, unwrap=True)
         message = str(scriptParams) + '\n'
+        message +='Session: %s\n session id: %s\n' % (session, client.getSessionId())
 
         # Run the script
         message += process(client, scriptParams) + '\n'

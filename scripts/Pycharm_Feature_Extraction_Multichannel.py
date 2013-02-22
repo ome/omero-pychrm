@@ -4,7 +4,6 @@ from omero import scripts
 from omero.util import script_utils
 import omero.model
 from omero.rtypes import rstring, rlong
-from omero.gateway import FileAnnotationWrapper, ImageWrapper
 from datetime import datetime
 from itertools import izip
 from tempfile import NamedTemporaryFile
@@ -26,53 +25,6 @@ except: #pragma: nocover
     except:
         raise omero.ServerError('No PIL installed')
 
-
-
-
-def addFileAnnotationToDataset(tc, table, d):
-    """
-    Attach the annotation to the dataset if not already attached
-    """
-    namespace = FeatureHandler.NAMESPACE
-
-    tfile = table.getOriginalFile()
-
-    d = tc.conn.getObject('Dataset', d.getId())
-    for a in d.listAnnotations(namespace):
-        if isinstance(a, FileAnnotationWrapper):
-            if tfile.getId() == a._obj.getFile().getId():
-                return 'Already attached'
-
-    fa = omero.model.FileAnnotationI()
-    fa.setFile(tfile)
-    fa.setNs(rstring(namespace))
-    fa.setDescription(rstring(namespace + ':' + tfile.getName().val))
-
-    annLink = omero.model.DatasetAnnotationLinkI()
-    annLink.link(omero.model.DatasetI(d.getId(), False), fa)
-
-    annLink = tc.conn.getUpdateService().saveAndReturnObject(annLink)
-    return 'Attached file id:%d to dataset id:%d\n' % \
-        (tfile.getId().getValue(), d.getId())
-
-
-def getDatasetTableFile(tc, tableName, d):
-    """
-    See if the dataset has a table file annotation
-    """
-    namespace = FeatureHandler.NAMESPACE
-
-    # Refresh the dataset, as the cached view might not show the latest
-    # annotations
-    d = tc.conn.getObject('Dataset', d.getId())
-
-    for a in d.listAnnotations(namespace):
-        if isinstance(a, FileAnnotationWrapper):
-            if tableName == a.getFileName():
-                return a._obj.getFile().getId().getValue()
-                #return a._obj.getFile()
-
-    return None
 
 
 def getTifs(im):
@@ -107,7 +59,7 @@ def extractFeatures(tc, ds, newOnly, chNames, imageId = None, im = None):
     else:
         imageId = im.getId()
 
-    tid = getDatasetTableFile(tc, tc.tableName, ds)
+    tid = FeatureHandler.getAttachedTableFile(tc, tc.tableName, ds)
     if tid:
         if not FeatureHandler.openTable(tc, tableId=tid):
             return message + '\nERROR: Table not opened\n'
@@ -138,7 +90,7 @@ def extractFeatures(tc, ds, newOnly, chNames, imageId = None, im = None):
     if not tid:
         FeatureHandler.createTable(tc, ftall.names)
         message += 'Created new table\n'
-        message += addFileAnnotationToDataset(tc, tc.table, ds)
+        message += FeatureHandler.addFileAnnotationTo(tc, tc.table, ds)
 
     FeatureHandler.saveFeatures(tc, imageId, ftall)
     return message + 'Extracted features from Image id:%d\n' % imageId
@@ -178,7 +130,7 @@ def processImages(client, scriptParams):
 
     tableName = '/Pychrm/' + contextName + '/SmallFeatureSet.h5'
     message += 'tableName:' + tableName + '\n'
-    tc = FeatureHandler.connect(client, tableName)
+    tc = FeatureHandler.connFeatureTable(client, tableName)
 
     try:
         nimages = 0

@@ -4,7 +4,6 @@ from omero import scripts
 from omero.util import script_utils
 import omero.model
 from omero.rtypes import rstring, rlong
-from omero.gateway import FileAnnotationWrapper, ImageWrapper
 from datetime import datetime
 
 
@@ -17,30 +16,11 @@ import FeatureHandler
 
 
 
-def getDatasetTableFile(tc, tableName, d):
-    """
-    See if the dataset has a table file annotation
-    """
-    namespace = FeatureHandler.NAMESPACE
-
-    # Refresh the dataset, as the cached view might not show the latest
-    # annotations
-    d = tc.conn.getObject('Dataset', d.getId())
-
-    for a in d.listAnnotations(namespace):
-        if isinstance(a, FileAnnotationWrapper):
-            if tableName == a.getFileName():
-                return a._obj.getFile().getId().getValue()
-                #return a._obj.getFile()
-
-    return None
-
-
 def countCompleted(tc, ds):
     message = ''
 
     imIds = [im.getId() for im in ds.listChildren()]
-    tid = getDatasetTableFile(tc, tc.tableName, ds)
+    tid = FeatureHandler.getAttachedTableFile(tc, tc.tableName, ds)
     if tid is None:
         message += 'Image feature status PRESENT:%d ABSENT:%d\n' % \
             (0, len(imIds))
@@ -70,7 +50,7 @@ def processImages(client, scriptParams):
 
     tableName = '/Pychrm/' + contextName + '/SmallFeatureSet.h5'
     message += 'tableName:' + tableName + '\n'
-    tc = FeatureHandler.connect(client, tableName)
+    tc = FeatureHandler.connFeatureTable(client, tableName)
 
     try:
         # Get the datasets

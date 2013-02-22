@@ -105,7 +105,7 @@ def process(client, scriptParams):
 
     tableName = '/test.h5'
     message += 'tableName:' + tableName + '\n'
-    tc = FeatureHandler.connect(client, tableName)
+    tc = FeatureHandler.connFeatureTable(client, tableName)
 
     try:
         nimages = 0
