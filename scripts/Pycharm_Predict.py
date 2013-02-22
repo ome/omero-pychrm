@@ -195,7 +195,13 @@ def predict(client, scriptParams):
 
         # Predict
         message += 'Predicting\n'
-        predDatasets = tcIn.conn.getObjects(dataType, predictIds)
+        predObjects = tcIn.conn.getObjects(dataType, predictIds)
+        if dataType == 'Project':
+            predDatasets = []
+            for proj in predObjects:
+                predDatasets.extend(proj.listChildren())
+        if dataType == 'Dataset':
+            predDatasets = predObjects
 
         for ds in predDatasets:
             message += 'Predicting dataset id:%d\n' % ds.getId()
@@ -228,7 +234,7 @@ def runScript():
 
         scripts.String('Data_Type', optional=False, grouping='1',
                        description='The source data to be predicted.',
-                       values=[rstring('Project'), rstring('Dataset'), rstring('Image')], default='Dataset'),
+                       values=[rstring('Project'), rstring('Dataset')], default='Dataset'),
 
         scripts.List(
             'IDs', optional=False, grouping='1',
