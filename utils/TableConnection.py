@@ -368,12 +368,13 @@ class FeatureTableConnection(TableConnection):
         return columns[:nWanted]
 
 
-    def readArray(self, colNumbers, start, stop):
+    def readArray(self, colNumbers, start, stop, chunk=None):
         """
         Read the requested array columns which may include null entries
         @param colNumbers Column numbers
         @param start The first row to be read
         @param stop The last + 1 row to be read
+        @param chunk The number of rows to be read in each request, default all
         @return a list of columns
         """
 
@@ -381,7 +382,11 @@ class FeatureTableConnection(TableConnection):
         nWanted = len(colNumbers)
 
         bcolNumbers = map(lambda x: x + nCols, colNumbers)
-        data = self.table.read(colNumbers + bcolNumbers, start, stop)
+        if chunk:
+            data = self.chunkedRead(colNumbers + bcolNumbers, start, stop,
+                                    chunk)
+        else:
+            data = self.table.read(colNumbers + bcolNumbers, start, stop)
         columns = data.columns
 
         for (c, b) in izip(columns[:nWanted], columns[nWanted:]):
