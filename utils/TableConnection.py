@@ -119,7 +119,7 @@ class TableConnection(object):
             self.table = self.res.openTable(ofile._obj)
             if not self.table:
                 # This is probably OMERO playing up for some reason
-                raise Exception('Failed to open table %d' % self.tableId)
+                raise Exception('Failed to open table %d' % ofile.getId())
             self.tableId = ofile.getId()
             print 'Opened table name:%s id:%d' % (tableName, self.tableId)
 
