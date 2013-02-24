@@ -1,7 +1,7 @@
 # Handle saving and loading of features and classes between Pychrm and
 # OMERO.tables
 
-from itertools import izip
+from itertools import izip, chain
 from TableConnection import FeatureTableConnection, TableConnectionError
 from TableConnection import TableConnection
 import omero
@@ -169,6 +169,29 @@ def loadFeatures(tc, id):
         values.extend(col.values[0])
 
     return (names, values)
+
+
+def bulkLoadFeatures(tc):
+    """
+    Load features for all objects in a table
+    @return a (names, values, ids) tuple where names is a list of single value
+    features, values is a list of lists of the corresponding feature values
+    and ids is a list of object IDs.
+    In other words values[i] is the list of feature values corresponding to
+    object with ID given by ids[i].
+    """
+    colNumbers = range(len(tc.getHeaders()))
+    nr = tc.getNumberOfRows()
+    cols = tc.readArray(colNumbers, 0, nr, CHUNK_SIZE)
+    names = []
+    ids = cols[0].values
+
+    for col in cols[1:]:
+        names.extend([createFeatureName(col.name, x) for x in xrange(col.size)])
+        values = map(lambda *args: list(chain.from_iterable(args)),
+                     *[c.values for c in cols[1:]])
+
+    return (names, values, ids)
 
 
 
