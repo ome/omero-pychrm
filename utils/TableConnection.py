@@ -295,7 +295,7 @@ class FeatureTableConnection(TableConnection):
         Just calls the base-class constructor
         """
         super(FeatureTableConnection, self).__init__(
-            user, passwd, host, client, tableName, tableId = None)
+            user, passwd, host, client, tableName, tableId)
 
     def createNewTable(self, idcolName, colDescriptions):
         """
