@@ -88,7 +88,7 @@ def predictDataset(tcIn, trainFts, predDs, weights):
 def formatPredResult(r):
     return 'ID:%s Prediction:%s Probabilities:[%s]' % \
         (r.source_file, r.predicted_class_name,
-         ' '.join(['%.3e' % p for p in r.marginal_probabilities]))
+         ' '.join(['%.3f' % p for p in r.marginal_probabilities]))
 
 
 def addPredictionsToImages(tc, prediction, dsId, commentImages, tagSet):
