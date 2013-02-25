@@ -60,7 +60,7 @@ def processImages(client, scriptParams):
         if not objects:
             return message
 
-        datasets = tc.conn.getObjects(dataType, ids)
+        datasets = FeatureHandler.datasetGenerator(tc.conn, dataType, ids)
         for ds in datasets:
             message += 'Processing dataset id:%d\n' % ds.getId()
             msg = countCompleted(tc, ds)
@@ -86,7 +86,8 @@ def runScript():
 
         scripts.String('Data_Type', optional=False, grouping='1',
                        description='The data you want to work with.',
-                       values=[rstring('Dataset')], default='Dataset'),
+                       values=[rstring('Project'), rstring('Dataset')],
+                       default='Dataset'),
 
         scripts.List(
             'IDs', optional=False, grouping='1',

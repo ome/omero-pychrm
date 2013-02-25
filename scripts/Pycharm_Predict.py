@@ -197,13 +197,8 @@ def predict(client, scriptParams):
 
         # Predict
         message += 'Predicting\n'
-        predObjects = tcIn.conn.getObjects(dataType, predictIds)
-        if dataType == 'Project':
-            predDatasets = []
-            for proj in predObjects:
-                predDatasets.extend(proj.listChildren())
-        if dataType == 'Dataset':
-            predDatasets = predObjects
+        predDatasets = FeatureHandler.datasetGenerator(
+            tcIn.conn, dataType, predictIds)
 
         for ds in predDatasets:
             message += 'Predicting dataset id:%d\n' % ds.getId()
