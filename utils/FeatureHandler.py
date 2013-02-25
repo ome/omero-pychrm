@@ -1,5 +1,7 @@
 # Handle saving and loading of features and classes between Pychrm and
 # OMERO.tables
+#
+# This has now expanded to do a lot more, and should be split up/renamed
 
 from itertools import izip, chain
 from TableConnection import FeatureTableConnection, TableConnectionError
@@ -426,4 +428,20 @@ def getClassifierTagSet(tc, classifierName, instanceName, project):
             return ann
 
     return None
+
+
+######################################################################
+# Fetching objects
+######################################################################
+def datasetGenerator(conn, dataType, ids):
+    if dataType == 'Project':
+        projects = conn.getObjects(dataType, ids)
+        for p in projects:
+            datasets = p.listChildren()
+            for d in datasets:
+                yield d
+    else:
+        datasets = conn.getObjects(dataType, ids)
+        for d in datasets:
+            yield d
 
