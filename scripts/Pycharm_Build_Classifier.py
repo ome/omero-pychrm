@@ -199,7 +199,7 @@ def runScript():
             'Features_threshold', optional=False, grouping='2',
             description='The proportion of features to keep (%)\n' + \
                 '(Should be a Double but doesn\'t seem to work)',
-            default=100),
+            default=15),
 
         scripts.Bool(
             'Cross_Reference_Table_Images', optional=False, grouping='2',
