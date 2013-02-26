@@ -242,7 +242,7 @@ def runScript():
             description='Project ID used for training'),
 
         scripts.Bool(
-            'Comment_Images', optional=False, grouping='4',
+            'Comment_Images', optional=False, grouping='3',
             description='Add predictions as image comments', default=False),
 
         scripts.Bool(
@@ -250,7 +250,7 @@ def runScript():
             description='Tag images with predictions', default=False),
 
         scripts.String(
-            'Context_Name', optional=False, grouping='3',
+            'Context_Name', optional=False, grouping='5',
             description='The name of the classification context.',
             default='Example'),
 
