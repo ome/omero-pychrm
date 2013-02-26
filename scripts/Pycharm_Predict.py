@@ -243,11 +243,11 @@ def runScript():
 
         scripts.Bool(
             'Comment_Images', optional=False, grouping='3',
-            description='Add predictions as image comments', default=False),
+            description='Add predictions as image comments', default=True),
 
         scripts.Bool(
             'Tag_Images', optional=False, grouping='4',
-            description='Tag images with predictions', default=False),
+            description='Tag images with predictions', default=True),
 
         scripts.String(
             'Context_Name', optional=False, grouping='5',
