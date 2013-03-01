@@ -19,7 +19,7 @@ import pychrm.FeatureSet
 
 
 
-def createWeights(tcIn, tcF, tcW, tcL, project, featureThreshold):
+def createWeights(tcIn, tcF, tcW, tcL, project, featureThreshold, imagesOnly):
     # Build the classifier (basically a set of weights)
     message = ''
     trainFts = pychrm.FeatureSet.FeatureSet_Discrete()
@@ -27,7 +27,7 @@ def createWeights(tcIn, tcF, tcW, tcL, project, featureThreshold):
     classId = 0
     for ds in project.listChildren():
         message += 'Processing dataset id:%d\n' % ds.getId()
-        message += addToFeatureSet(tcIn, ds, trainFts, classId)
+        message += addToFeatureSet(tcIn, ds, trainFts, classId, imagesOnly)
         classId += 1
 
     tmp = trainFts.ContiguousDataMatrix()
@@ -81,7 +81,7 @@ def reduceFeatures(fts, weights):
     return ftsr
 
 
-def addToFeatureSet(tcIn, ds, fts, classId):
+def addToFeatureSet(tcIn, ds, fts, classId, imagesOnly):
     message = ''
 
     tid = FeatureHandler.getAttachedTableFile(tcIn, tcIn.tableName, ds)
@@ -94,14 +94,26 @@ def addToFeatureSet(tcIn, ds, fts, classId):
         return message
 
     #fts = pychrm.FeatureSet.FeatureSet_Discrete({'num_images': 0})
-    for image in ds.listChildren():
-        imId = image.getId()
-        message += '\tProcessing features for image id:%d\n' % imId
+    if imagesOnly:
+        for image in ds.listChildren():
+            imId = image.getId()
+            message += '\tProcessing features for image id:%d\n' % imId
 
-        sig = pychrm.FeatureSet.Signatures()
-        (sig.names, sig.values) = FeatureHandler.loadFeatures(tcIn, imId)
-        sig.source_file = str(imId)
-        fts.AddSignature(sig, classId)
+            sig = pychrm.FeatureSet.Signatures()
+            (sig.names, sig.values) = FeatureHandler.loadFeatures(tcIn, imId)
+            sig.source_file = str(imId)
+            fts.AddSignature(sig, classId)
+
+    else:
+        names, values, ids = FeatureHandler.bulkLoadFeatures(tcIn)
+        message += '\tProcessing all features for dataset id:%d\n' % ds.getId()
+
+        for imId, vals in izip(ids, values):
+            sig = pychrm.FeatureSet.Signatures()
+            sig.names = names
+            sig.values = vals
+            sig.source_file = str(imId)
+            fts.AddSignature(sig, classId)
 
     fts.classnames_list[classId] = ds.getName()
     return message
@@ -115,6 +127,7 @@ def trainClassifier(client, scriptParams):
     projectId = scriptParams['IDs']
     contextName = scriptParams['Context_Name']
     featureThreshold = scriptParams['Features_threshold'] / 100.0
+    imagesOnly = scriptParams['Cross_Reference_Table_Images']
 
     if len(projectId) != 1:
         raise Exception('A single project must be provided')
@@ -143,7 +156,8 @@ def trainClassifier(client, scriptParams):
         message += 'Training classifier\n'
         trainProject = tcIn.conn.getObject(dataType, projectId)
         trainFts, weights, msg = createWeights(
-            tcIn, tcOutF, tcOutW, tcOutL, trainProject, featureThreshold)
+            tcIn, tcOutF, tcOutW, tcOutL, trainProject, featureThreshold,
+            imagesOnly)
         message += msg
 
     except:
@@ -185,7 +199,12 @@ def runScript():
             'Features_threshold', optional=False, grouping='2',
             description='The proportion of features to keep (%)\n' + \
                 '(Should be a Double but doesn\'t seem to work)',
-            default=100),
+            default=15),
+
+        scripts.Bool(
+            'Cross_Reference_Table_Images', optional=False, grouping='2',
+            description='Should the features table be cross-references with the list of images in the dataset?',
+            default=True),
 
         version = '0.0.1',
         authors = ['Simon Li', 'OME Team'],

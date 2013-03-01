@@ -79,6 +79,23 @@ class TableConnection(object):
         @param tableId The OriginalFile ID of the table file
         @return handle to the table
         """
+
+        def openRetry(ofile, n):
+            """
+            OMERO openTable sometimes returns None for no apparent reason, even
+            though the underlying getTable() call works.
+            Automatically retry opening the table n times.
+            Throws an exception if the table has still not been opened.
+            """
+            for i in xrange(n):
+                t = self.res.openTable(ofile)
+                if t:
+                    return t
+                print 'Failed to open table %d (attempt %d)' % \
+                    (ofile.getId().val, i + 1)
+            raise Exception('Failed to open table %d' % ofile.getId().val)
+
+
         if not tableId and not tableName:
             tableId = self.tableId
             tableName = self.tableName
@@ -116,10 +133,11 @@ class TableConnection(object):
                 (tableName, tableId)
         else:
             self.closeTable()
-            self.table = self.res.openTable(ofile._obj)
-            if not self.table:
-                # This is probably OMERO playing up for some reason
-                raise Exception('Failed to open table %d' % self.tableId)
+            self.table = openRetry(ofile._obj, 5)
+            #self.table = self.res.openTable(ofile._obj)
+            #if not self.table:
+            #    # This is probably OMERO playing up for some reason
+            #    raise Exception('Failed to open table %d' % ofile.getId())
             self.tableId = ofile.getId()
             print 'Opened table name:%s id:%d' % (tableName, self.tableId)
 
@@ -295,7 +313,7 @@ class FeatureTableConnection(TableConnection):
         Just calls the base-class constructor
         """
         super(FeatureTableConnection, self).__init__(
-            user, passwd, host, client, tableName, tableId = None)
+            user, passwd, host, client, tableName, tableId)
 
     def createNewTable(self, idcolName, colDescriptions):
         """
@@ -368,12 +386,13 @@ class FeatureTableConnection(TableConnection):
         return columns[:nWanted]
 
 
-    def readArray(self, colNumbers, start, stop):
+    def readArray(self, colNumbers, start, stop, chunk=None):
         """
         Read the requested array columns which may include null entries
         @param colNumbers Column numbers
         @param start The first row to be read
         @param stop The last + 1 row to be read
+        @param chunk The number of rows to be read in each request, default all
         @return a list of columns
         """
 
@@ -381,7 +400,11 @@ class FeatureTableConnection(TableConnection):
         nWanted = len(colNumbers)
 
         bcolNumbers = map(lambda x: x + nCols, colNumbers)
-        data = self.table.read(colNumbers + bcolNumbers, start, stop)
+        if chunk:
+            data = self.chunkedRead(colNumbers + bcolNumbers, start, stop,
+                                    chunk)
+        else:
+            data = self.table.read(colNumbers + bcolNumbers, start, stop)
         columns = data.columns
 
         for (c, b) in izip(columns[:nWanted], columns[nWanted:]):

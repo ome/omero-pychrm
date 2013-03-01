@@ -88,7 +88,7 @@ def predictDataset(tcIn, trainFts, predDs, weights):
 def formatPredResult(r):
     return 'ID:%s Prediction:%s Probabilities:[%s]' % \
         (r.source_file, r.predicted_class_name,
-         ' '.join(['%.3e' % p for p in r.marginal_probabilities]))
+         ' '.join(['%.3f' % p for p in r.marginal_probabilities]))
 
 
 def addPredictionsToImages(tc, prediction, dsId, commentImages, tagSet):
@@ -197,13 +197,8 @@ def predict(client, scriptParams):
 
         # Predict
         message += 'Predicting\n'
-        predObjects = tcIn.conn.getObjects(dataType, predictIds)
-        if dataType == 'Project':
-            predDatasets = []
-            for proj in predObjects:
-                predDatasets.extend(proj.listChildren())
-        if dataType == 'Dataset':
-            predDatasets = predObjects
+        predDatasets = FeatureHandler.datasetGenerator(
+            tcIn.conn, dataType, predictIds)
 
         for ds in predDatasets:
             message += 'Predicting dataset id:%d\n' % ds.getId()
@@ -247,15 +242,15 @@ def runScript():
             description='Project ID used for training'),
 
         scripts.Bool(
-            'Comment_Images', optional=False, grouping='4',
-            description='Add predictions as image comments', default=False),
+            'Comment_Images', optional=False, grouping='3',
+            description='Add predictions as image comments', default=True),
 
         scripts.Bool(
             'Tag_Images', optional=False, grouping='4',
-            description='Tag images with predictions', default=False),
+            description='Tag images with predictions', default=True),
 
         scripts.String(
-            'Context_Name', optional=False, grouping='3',
+            'Context_Name', optional=False, grouping='5',
             description='The name of the classification context.',
             default='Example'),
 

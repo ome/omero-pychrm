@@ -117,15 +117,15 @@ def runScript():
             description='List of Dataset IDs or Image IDs').ofType(rlong(0)),
 
         scripts.Bool(
-            'Remove_tables', optional=False, grouping='1',
+            'Remove_tables', optional=False, grouping='2',
             description='Remove table (HDF5 file) annotations', default=False),
 
         scripts.Bool(
-            'Remove_comments', optional=False, grouping='1',
+            'Remove_comments', optional=False, grouping='3',
             description='Remove comments', default=True),
 
         scripts.Bool(
-            'Remove_tags', optional=False, grouping='1',
+            'Remove_tags', optional=False, grouping='4',
             description='Remove tags', default=True),
 
         version = '0.0.1',
