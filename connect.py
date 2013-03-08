@@ -16,11 +16,12 @@ import omero.gateway
 
 
 class Connection:
-    def __init__(self, user, passwd, host, port):
+    def __init__(self, user, passwd, host, port, keepAlive):
         self.user = user
         self.passwd = passwd
         self.host = host
         self.port = port
+        self.keepAlive = keepAlive
         self.cli = None
         self.c()
 
@@ -28,7 +29,7 @@ class Connection:
         self.close()
         self.cli = omero.client(host=self.host, port=self.port)
         self.sess = self.cli.createSession(self.user, self.passwd)
-        self.cli.enableKeepAlive(60)
+        self.cli.enableKeepAlive(self.keepAlive)
         self.conn = omero.gateway.BlitzGateway(client_obj=self.cli)
         self.res = self.sess.sharedResources()
 
@@ -58,8 +59,9 @@ def _readServers(file='servers.conf'):
 
 
 def _makeFunction(v):
-    def f(user=v['user'], passwd=v['passwd'], host=v['host'], port=v['port']):
-        return Connection(user, passwd, host, port)
+    def f(user=v['user'], passwd=v['passwd'], host=v['host'], port=v['port'],
+          keepAlive=60):
+        return Connection(user, passwd, host, port, keepAlive)
     return f
 
 _cfg = _readServers()
