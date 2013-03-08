@@ -13,6 +13,7 @@
 
 import omero
 import omero.gateway
+import os.path
 
 
 class Connection:
@@ -38,7 +39,7 @@ class Connection:
             self.cli.closeSession()
 
 
-def _readServers(file='servers.conf'):
+def _readServers(file):
     cfg = {}
     with open(file) as f:
         try:
@@ -64,6 +65,8 @@ def _makeFunction(v):
         return Connection(user, passwd, host, port, keepAlive)
     return f
 
-_cfg = _readServers()
+# Read servers.conf in the directory containing this script
+_cfg = _readServers(os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                 'servers.conf'))
 for _k in _cfg:
     vars()[_k] = _makeFunction(_cfg[_k])
