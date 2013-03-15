@@ -2,9 +2,10 @@
 #
 from omero import scripts
 import omero.model
-from omero.rtypes import rstring, rlong
+from omero.rtypes import rstring, rlong, wrap, unwrap
 from datetime import datetime
 import numpy
+from omero.gateway import BlitzGateway
 
 import sys, os
 basedir = os.getenv('HOME') + '/work/omero-pychrm'
@@ -162,7 +163,8 @@ def predict(client, scriptParams):
     message = ''
 
     # for params with default values, we can get the value directly
-    projectId = scriptParams['Training_Project_ID']
+    # This will handle both 'ID: Name' and 'ID' forms
+    projectId = scriptParams['Training_Project'].split(':')[0]
     dataType = scriptParams['Data_Type']
     predictIds = scriptParams['IDs']
     commentImages = scriptParams['Comment_Images']
@@ -219,10 +221,48 @@ def predict(client, scriptParams):
     return message
 
 
+def listProjectsWithTagSets():
+    """
+    Get a list of Projects with tagsets using a separate omero.client.
+    This can be used to populate the classifier list in the script dialog.
+
+    Note that since this is run before the proper scripting client is created
+    we need to catch all errors, otherwise they'll be lost.
+
+    TODO: Check child tags are in the expected namespace in case of
+    non-pychrm tagsets. Maybe also check classifier feature tables exist.
+    """
+    client = omero.client()
+    try:
+        client.createSession()
+        conn = BlitzGateway(client_obj=client)
+        qs = conn.getQueryService()
+
+        q = 'select pal from ProjectAnnotationLink as pal join ' \
+            'fetch pal.parent as proj join '\
+            'fetch pal.child as ann '\
+            'where pal.child.ns like :ns ' \
+            'order by pal.parent.name '
+        params = omero.sys.Parameters()
+        params.map = {'ns': rstring(omero.constants.metadata.NSINSIGHTTAGSET)}
+        pal = qs.findAllByQuery(q, params)
+        projectList = ['%d: %s' %
+                       (unwrap(p.getParent().getId()),
+                        unwrap(p.getParent().getName()))
+                       for p in pal]
+    except Exception as e:
+        projectList = ['ERROR: Failed to get list of projects: %s' % e]
+
+    client.closeSession()
+    return projectList
+
+
 def runScript():
     """
     The main entry point of the script, as called by the client via the scripting service, passing the required parameters. 
     """
+
+    projectList = listProjectsWithTagSets()
 
     client = scripts.client(
         'Pycharm_Build_Classifier.py',
@@ -237,9 +277,10 @@ def runScript():
             'IDs', optional=False, grouping='1',
             description='List of Dataset IDs to be predicted').ofType(rlong(0)),
 
-        scripts.Long(
-            'Training_Project_ID', optional=False, grouping='2',
-            description='Project ID used for training'),
+        scripts.String('Training_Project', optional=False, grouping='2',
+                       description='Project used for training',
+                       values=projectList),
+                       #default=projectList[0]),
 
         scripts.Bool(
             'Comment_Images', optional=False, grouping='3',
