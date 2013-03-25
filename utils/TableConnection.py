@@ -43,7 +43,7 @@ class TableConnection(object):
     """
 
     def __init__(self, user = None, passwd = None, host = 'localhost',
-                 client = None):
+                 client = None, tableName = None):
         """
         Create a new table handler, either by specifying user and passwd or by
         providing a client object (for scripts)
@@ -51,6 +51,9 @@ class TableConnection(object):
         @param passwd Password
         @param host The server hostname
         @param client Client object with an active session
+        @param tableName If provided the name of any table opened by subsequent
+        calls will be checked against this, and any new tables will be named
+        by this
         """
         if not client:
             client = omero.client(host)
@@ -68,7 +71,7 @@ class TableConnection(object):
         repos = self.res.repositories()
         self.rid = repos.descriptions[0].id.val
 
-        self.tableName = None
+        self.tableName = tableName
         self.tableId = None
         self.table = None
 
@@ -88,12 +91,10 @@ class TableConnection(object):
             self.conn._closeSession()
 
 
-    def openTable(self, tableId, tableName = None):
+    def openTable(self, tableId):
         """
         Opens an existing table by ID.
         @param tableId The OriginalFile ID of the table file, required.
-        @param tableName The name of the table file, if provided will be checked
-        against the name of the table, and an error thrown if it does not match.
         @return handle to the table
         """
 
@@ -115,8 +116,6 @@ class TableConnection(object):
 
         if not tableId:
             tableId = self.tableId
-        if not tableName:
-            tableName = self.tableName
         if not tableId:
             raise TableConnectionError('Table ID required')
 
@@ -124,10 +123,10 @@ class TableConnection(object):
         ofile = self.conn.getObject("OriginalFile", attributes = attrs)
         if not ofile:
             raise TableConnectionError('No table found with id:%s' % tableId)
-        if tableName and ofile.getName() != tableName:
+        if self.tableName and ofile.getName() != self.tableName:
             raise TableConnectionError(
                 'Expected table id:%s to have name:%s, instead found %s' % (
-                    tableId, tableName, ofile.getName()))
+                    tableId, self.tableName, ofile.getName()))
 
         if self.tableId == ofile.getId():
             if not self.table:
@@ -152,25 +151,27 @@ class TableConnection(object):
         return self.table
 
 
-    def findByName(self, tableName):
+    def findByName(self):
         """
         Searches for OriginalFile objects by name, does not check whether
         file is a table
-        @param tableName The filename to search for
         @return an iterator to a sequence of OriginalFiles
         """
-        attrs = {'name': tableName}
+        if not self.tableName:
+            raise TableConnectionError('No tableName set')
+        attrs = {'name': self.tableName}
         return self.conn.getObjects("OriginalFile", attributes = attrs)
 
 
-    def deleteAllTables(self, tableName):
+    def deleteAllTables(self):
         """
         Delete all tables with tableName
         Will fail if there are any annotation links
-        @param tableName The filename to search for
         """
+        if not self.tableName:
+            raise TableConnectionError('No tableName set')
         ofiles = self.conn.getObjects("OriginalFile", \
-            attributes = {'name': tableName})
+            attributes = {'name': self.tableName})
         ids = [f.getId() for f in ofiles]
         print 'Deleting ids:%s' % ids
         self.conn.deleteObjects('OriginalFile', ids)
@@ -200,19 +201,17 @@ class TableConnection(object):
         finally:
             self.table = None
             self.tableId = None
-            self.tableName = None
 
 
-    def newTable(self, schema, tableName):
+    def newTable(self, schema):
         """
         Create a new uninitialised table
         @param schema the table description
-        @param tableName The name of the table file
         @return A handle to the table
         """
         self.closeTable()
-
-        self.tableName = tableName
+        if not self.tableName:
+            raise TableConnectionError('No tableName set')
 
         self.table = self.res.newTable(self.rid, self.tableName)
         ofile = self.table.getOriginalFile()
@@ -230,7 +229,6 @@ class TableConnection(object):
 
             self.table = None
             self.tableId = None
-            self.tableName = None
             raise e
 
         return self.table
@@ -325,17 +323,18 @@ class FeatureTableConnection(TableConnection):
     requesting every time
     """
 
-    def __init__(self, user = None, passwd = None, host = None, client = None):
+    def __init__(self, user = None, passwd = None, host = None, client = None,
+                 tableName = None):
         """
         Just calls the base-class constructor
         """
-        super(FeatureTableConnection, self).__init__(user, passwd, host, client)
+        super(FeatureTableConnection, self).__init__(user, passwd, host, client,
+                                                     tableName)
 
-    def createNewTable(self, tableName, idcolName, colDescriptions):
+    def createNewTable(self, idcolName, colDescriptions):
         """
         Create a new table with an id LongColumn followed by
         a set of nullable DoubleArrayColumns
-        @param tableName The name of the table file
         @param idcolName The name of the id LongColumn
         @param colDescriptions A list of 2-tuples describing each column in
         the form [(name, size), ...]
@@ -352,7 +351,7 @@ class FeatureTableConnection(TableConnection):
                  [BoolColumn('_b_' + idcolName)] + \
                  [BoolColumn('_b_' + name) \
                       for (name, size) in colDescriptions]
-        self.newTable(cols, tableName)
+        self.newTable(cols)
 
 
     def isValid(self, colNumbers, start, stop):

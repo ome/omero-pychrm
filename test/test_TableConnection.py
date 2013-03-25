@@ -68,8 +68,8 @@ class TestTableConnection(ClientHelper):
     def test_openTable(self):
         tid = self.create_table()
 
-        tc = TableConnection(client=self.cli)
-        t = tc.openTable(tid, self.tableName)
+        tc = TableConnection(client=self.cli, tableName=self.tableName)
+        t = tc.openTable(tid)
         self.assertIsNotNone(t)
 
         t.close()
@@ -77,9 +77,9 @@ class TestTableConnection(ClientHelper):
     def test_findByName(self):
         tid = self.create_table()
 
-        tc = TableConnection(client=self.cli)
+        tc = TableConnection(client=self.cli, tableName=self.tableName)
         found = False
-        for ofiles in tc.findByName(self.tableName):
+        for ofiles in tc.findByName():
             found = found or unwrap(ofiles.getId()) == tid
         self.assertTrue(found)
 
@@ -90,9 +90,9 @@ class TestTableConnection(ClientHelper):
         Don't run unless explicitly requested.
         Doesn't seem to work.
         """
-        tc = TableConnection(client=self.cli)
-        tc.deleteAllTables(self.tableName)
-        ofiles = list(tc.findByName(self.tableName))
+        tc = TableConnection(client=self.cli, tableName=self.tableName)
+        tc.deleteAllTables()
+        ofiles = list(tc.findByName())
         self.assertEqual(len(ofiles), 0)
 
     def test_headersRows(self):
@@ -108,14 +108,14 @@ class TestTableConnection(ClientHelper):
         self.assertEqual(tc.getNumberOfRows(), 4)
 
     def test_newTable(self):
-        tc = TableConnection(client=self.cli)
+        tc = TableConnection(client=self.cli, tableName=self.tableName)
         cols = [omero.grid.LongColumn('lc1', 'l c 1', [1, 2, 3])]
-        t = tc.newTable(cols, self.tableName)
+        t = tc.newTable(cols)
         self.assertIsNotNone(t)
 
     def test_chunked(self):
         tid = self.create_table()
-        tc = TableConnection(client=self.cli)
+        tc = TableConnection(client=self.cli, tableName=self.tableName)
         t = tc.openTable(tid)
 
         cols = tc.getHeaders()
@@ -135,18 +135,18 @@ class TestFeatureTableConnection(ClientHelper):
 
     def create_table(self):
         cli, sess = self.create_client()
-        ftc = FeatureTableConnection(client=cli)
+        ftc = FeatureTableConnection(client=cli, tableName=self.tableName)
         desc = [('a', 3), ('b', 1)]
-        ftc.createNewTable(self.tableName, 'ID', desc)
+        ftc.createNewTable('ID', desc)
         tid = ftc.tableId
         ftc.close()
         return tid
 
     def create_table_with_data(self):
         cli, sess = self.create_client()
-        ftc = FeatureTableConnection(client=cli)
+        ftc = FeatureTableConnection(client=cli, tableName=self.tableName)
         desc = [('a', 3), ('b', 1)]
-        ftc.createNewTable(self.tableName, 'ID', desc)
+        ftc.createNewTable('ID', desc)
 
         cols = ftc.getHeaders()
         cols[0].values = [1, 8, 3, 6]
@@ -161,7 +161,7 @@ class TestFeatureTableConnection(ClientHelper):
 
     def test_createNewTable(self):
         tid = self.create_table()
-        ftc = FeatureTableConnection(client=self.cli)
+        ftc = FeatureTableConnection(client=self.cli, tableName=self.tableName)
         ftc.openTable(tid)
 
         headers = ftc.table.getHeaders()
@@ -172,7 +172,7 @@ class TestFeatureTableConnection(ClientHelper):
 
     def test_isValid(self):
         tid = self.create_table_with_data()
-        ftc = FeatureTableConnection(client=self.cli)
+        ftc = FeatureTableConnection(client=self.cli, tableName=self.tableName)
         ftc.openTable(tid)
         bs = ftc.isValid([2, 0, 1], 0, 4)
 
@@ -183,7 +183,7 @@ class TestFeatureTableConnection(ClientHelper):
     @unittest.expectedFailure
     def test_readSubArray(self):
         tid = self.create_table_with_data()
-        ftc = FeatureTableConnection(client=self.cli)
+        ftc = FeatureTableConnection(client=self.cli, tableName=self.tableName)
         ftc.openTable(tid)
 
         can = {2:[0], 1:[0,2]}
@@ -193,7 +193,7 @@ class TestFeatureTableConnection(ClientHelper):
 
     def test_readArray(self):
         tid = self.create_table_with_data()
-        ftc = FeatureTableConnection(client=self.cli)
+        ftc = FeatureTableConnection(client=self.cli, tableName=self.tableName)
         ftc.openTable(tid)
 
         xs = ftc.readArray([0, 2], 0, 3, chunk=2)
@@ -208,7 +208,7 @@ class TestFeatureTableConnection(ClientHelper):
 
     def test_getRowId(self):
         tid = self.create_table_with_data()
-        ftc = FeatureTableConnection(client=self.cli)
+        ftc = FeatureTableConnection(client=self.cli, tableName=self.tableName)
         ftc.openTable(tid)
 
         self.assertEqual(ftc.getRowId(1), 0)
@@ -219,7 +219,7 @@ class TestFeatureTableConnection(ClientHelper):
 
     def test_getHeaders(self):
         tid = self.create_table()
-        ftc = FeatureTableConnection(client=self.cli)
+        ftc = FeatureTableConnection(client=self.cli, tableName=self.tableName)
         ftc.openTable(tid)
 
         headers = ftc.getHeaders()
@@ -228,7 +228,7 @@ class TestFeatureTableConnection(ClientHelper):
 
     def test_addData(self):
         tid = self.create_table_with_data()
-        ftc = FeatureTableConnection(client=self.cli)
+        ftc = FeatureTableConnection(client=self.cli, tableName=self.tableName)
         ftc.openTable(tid)
 
         cols = ftc.getHeaders()
@@ -246,7 +246,7 @@ class TestFeatureTableConnection(ClientHelper):
 
     def test_addPartialData(self):
         tid = self.create_table_with_data()
-        ftc = FeatureTableConnection(client=self.cli)
+        ftc = FeatureTableConnection(client=self.cli, tableName=self.tableName)
         ftc.openTable(tid)
 
         cols = ftc.getHeaders()
