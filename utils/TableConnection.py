@@ -177,20 +177,6 @@ class TableConnection(object):
         self.conn.deleteObjects('OriginalFile', ids)
 
 
-    def dumpTable(self, table):
-        """
-        Print out the table
-        """
-        headers = table.getHeaders()
-        print ', '.join([t.name for t in headers])
-        nrows = table.getNumberOfRows()
-        #data = table.readCoordinates(xrange(table.getNumberOfRows))
-
-        for r in xrange(nrows):
-            data = table.read(range(len(headers)), r, r + 1)
-            print ', '.join(['%.2f' % c.values[0] for c in data.columns])
-
-
     def closeTable(self):
         """
         Close the table if open, and set table and tableId to None
