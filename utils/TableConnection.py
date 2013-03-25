@@ -43,7 +43,7 @@ class TableConnection(object):
     """
 
     def __init__(self, user = None, passwd = None, host = 'localhost',
-                 client = None, tableName = None, tableId = None):
+                 client = None):
         """
         Create a new table handler, either by specifying user and passwd or by
         providing a client object (for scripts)
@@ -51,8 +51,6 @@ class TableConnection(object):
         @param passwd Password
         @param host The server hostname
         @param client Client object with an active session
-        @param tableName The name of the table file
-        @param tableId The OriginalFile ID of the table file
         """
         if not client:
             client = omero.client(host)
@@ -70,8 +68,8 @@ class TableConnection(object):
         repos = self.res.repositories()
         self.rid = repos.descriptions[0].id.val
 
-        self.tableName = tableName
-        self.tableId = tableId
+        self.tableName = None
+        self.tableId = None
         self.table = None
 
     def __enter__(self):
@@ -90,14 +88,12 @@ class TableConnection(object):
             self.conn._closeSession()
 
 
-    def openTable(self, tableId = None, tableName = None):
+    def openTable(self, tableId, tableName = None):
         """
-        Opens an existing table by ID or name.
-        If there are multiple tables with the same name this throws an error
-        (should really use an annotation to keep track of this).
-        If tableId is supplied it will be used in preference to tableName
-        @param tableName The name of the table file
-        @param tableId The OriginalFile ID of the table file
+        Opens an existing table by ID.
+        @param tableId The OriginalFile ID of the table file, required.
+        @param tableName The name of the table file, if provided will be checked
+        against the name of the table, and an error thrown if it does not match.
         @return handle to the table
         """
 
@@ -117,50 +113,35 @@ class TableConnection(object):
             raise Exception('Failed to open table %d' % ofile.getId().val)
 
 
-        if not tableId and not tableName:
-            tableId = self.tableId
-            tableName = self.tableName
-
         if not tableId:
-            if not tableName:
-                tableName = self.tableName
-            attrs = {'name': tableName}
-            ofiles = list(
-                self.conn.getObjects("OriginalFile", attributes = attrs))
-            if len(ofiles) > 1:
-                raise TableConnectionError(
-                    'Multiple tables with name:%s found' % tableName)
-            if not ofiles:
-                raise TableConnectionError(
-                    'No table found with name:%s' % tableName)
-            ofile = ofiles[0]
-        else:
-            attrs = {'id': long(tableId)}
-            if tableName:
-                attrs['name'] = tableName
-            ofile = self.conn.getObject("OriginalFile", attributes = attrs)
+            tableId = self.tableId
+        if not tableName:
+            tableName = self.tableName
+        if not tableId:
+            raise TableConnectionError('Table ID required')
 
+        attrs = {'id': long(tableId)}
+        ofile = self.conn.getObject("OriginalFile", attributes = attrs)
         if not ofile:
-            raise TableConnectionError('No table found with name:%s id:%s' %
-                                       (tableName, tableId))
+            raise TableConnectionError('No table found with id:%s' % tableId)
+        if tableName and ofile.getName() != tableName:
+            raise TableConnectionError(
+                'Expected table id:%s to have name:%s, instead found %s' % (
+                    tableId, tableName, ofile.getName()))
 
         if self.tableId == ofile.getId():
             if not self.table:
                 print 'WARNING: Expected table to be already open'
         else:
             self.table = None
+
         if self.table:
-            print 'Using existing connection to table name:%s id:%d' % \
-                (tableName, tableId)
+            print 'Using existing connection to table id:%d' % tableId
         else:
             self.closeTable()
             self.table = openRetry(ofile._obj, 5)
-            #self.table = self.res.openTable(ofile._obj)
-            #if not self.table:
-            #    # This is probably OMERO playing up for some reason
-            #    raise Exception('Failed to open table %d' % ofile.getId())
             self.tableId = ofile.getId()
-            print 'Opened table name:%s id:%d' % (tableName, self.tableId)
+            print 'Opened table id:%d' % self.tableId
 
         try:
             print '\t%d rows %d columns' % \
@@ -168,17 +149,28 @@ class TableConnection(object):
         except omero.ApiUsageException:
             pass
 
-        self.tableId = tableId
         return self.table
 
 
-    def deleteAllTables(self):
+    def findByName(self, tableName):
         """
-        Delete all tables with self.tableName
+        Searches for OriginalFile objects by name, does not check whether
+        file is a table
+        @param tableName The filename to search for
+        @return an iterator to a sequence of OriginalFiles
+        """
+        attrs = {'name': tableName}
+        return self.conn.getObjects("OriginalFile", attributes = attrs)
+
+
+    def deleteAllTables(self, tableName):
+        """
+        Delete all tables with tableName
         Will fail if there are any annotation links
+        @param tableName The filename to search for
         """
         ofiles = self.conn.getObjects("OriginalFile", \
-            attributes = {'name': self.tableName})
+            attributes = {'name': tableName})
         ids = [f.getId() for f in ofiles]
         print 'Deleting ids:%s' % ids
         self.conn.deleteObjects('OriginalFile', ids)
@@ -208,15 +200,19 @@ class TableConnection(object):
         finally:
             self.table = None
             self.tableId = None
+            self.tableName = None
 
 
-    def newTable(self, schema):
+    def newTable(self, schema, tableName):
         """
         Create a new uninitialised table
         @param schema the table description
+        @param tableName The name of the table file
         @return A handle to the table
         """
         self.closeTable()
+
+        self.tableName = tableName
 
         self.table = self.res.newTable(self.rid, self.tableName)
         ofile = self.table.getOriginalFile()
@@ -234,6 +230,7 @@ class TableConnection(object):
 
             self.table = None
             self.tableId = None
+            self.tableName = None
             raise e
 
         return self.table
@@ -328,18 +325,17 @@ class FeatureTableConnection(TableConnection):
     requesting every time
     """
 
-    def __init__(self, user = None, passwd = None, host = None,
-                 client = None, tableName = None, tableId = None):
+    def __init__(self, user = None, passwd = None, host = None, client = None):
         """
         Just calls the base-class constructor
         """
-        super(FeatureTableConnection, self).__init__(
-            user, passwd, host, client, tableName, tableId)
+        super(FeatureTableConnection, self).__init__(user, passwd, host, client)
 
-    def createNewTable(self, idcolName, colDescriptions):
+    def createNewTable(self, tableName, idcolName, colDescriptions):
         """
         Create a new table with an id LongColumn followed by
         a set of nullable DoubleArrayColumns
+        @param tableName The name of the table file
         @param idcolName The name of the id LongColumn
         @param colDescriptions A list of 2-tuples describing each column in
         the form [(name, size), ...]
@@ -350,14 +346,13 @@ class FeatureTableConnection(TableConnection):
         # a bool column for the id column even though it should always
         # be valid.
 
-
         cols = [LongColumn(idcolName)] + \
             [DoubleArrayColumn(name, '', size) \
                  for (name, size) in colDescriptions] + \
                  [BoolColumn('_b_' + idcolName)] + \
                  [BoolColumn('_b_' + name) \
                       for (name, size) in colDescriptions]
-        self.newTable(cols)
+        self.newTable(cols, tableName)
 
 
     def isValid(self, colNumbers, start, stop):
