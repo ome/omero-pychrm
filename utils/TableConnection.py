@@ -22,6 +22,7 @@
 #
 #
 from itertools import izip
+import logging
 import omero
 from copy import deepcopy
 from omero.gateway import BlitzGateway
@@ -55,6 +56,10 @@ class TableConnection(object):
         calls will be checked against this, and any new tables will be named
         by this
         """
+
+        self.log = logging.getLogger(__name__)
+        #self.log.setLevel(logging.DEBUG)
+
         if not client:
             client = omero.client(host)
             sess = client.createSession(user, passwd)
@@ -76,15 +81,15 @@ class TableConnection(object):
         self.table = None
 
     def __enter__(self):
-        print 'Entering Connection'
+        self.log.debug('Entering Connection')
         return self
 
     def __exit__(self, type, value, traceback):
-        print 'Exiting Connection'
+        self.log.debug('Exiting Connection')
         self.close()
 
     def close(self):
-        print 'Closing Connection'
+        self.log.debug('Closing Connection')
         try:
             self.closeTable()
         finally:
@@ -109,8 +114,8 @@ class TableConnection(object):
                 t = self.res.openTable(ofile)
                 if t:
                     return t
-                print 'Failed to open table %d (attempt %d)' % \
-                    (ofile.getId().val, i + 1)
+                self.log.warn('Failed to open table %d (attempt %d)',
+                              ofile.getId().val, i + 1)
             raise TableConnectionError(
                 'Failed to open table %d' % ofile.getId().val)
 
@@ -131,21 +136,21 @@ class TableConnection(object):
 
         if self.tableId == ofile.getId():
             if not self.table:
-                print 'WARNING: Expected table to be already open'
+                self.log.warn('Expected table to be already open')
         else:
             self.table = None
 
         if self.table:
-            print 'Using existing connection to table id:%d' % tableId
+            self.log.debug('Using existing connection to table id:%d', tableId)
         else:
             self.closeTable()
             self.table = openRetry(ofile._obj, 5)
             self.tableId = ofile.getId()
-            print 'Opened table id:%d' % self.tableId
+            self.log.debug('Opened table id:%d', self.tableId)
 
         try:
-            print '\t%d rows %d columns' % \
-                (self.table.getNumberOfRows(), len(self.table.getHeaders()))
+            self.log.debug('\t%d rows %d columns', self.table.getNumberOfRows(),
+                           len(self.table.getHeaders()))
         except omero.ApiUsageException:
             pass
 
@@ -174,7 +179,7 @@ class TableConnection(object):
         ofiles = self.conn.getObjects("OriginalFile", \
             attributes = {'name': self.tableName})
         ids = [f.getId() for f in ofiles]
-        print 'Deleting ids:%s' % ids
+        self.log.debug('Deleting ids:%s', ids)
         self.conn.deleteObjects('OriginalFile', ids)
 
 
@@ -206,13 +211,14 @@ class TableConnection(object):
 
         try:
             self.table.initialize(schema)
-            print "Initialised '%s' (%d)" % (self.tableName, self.tableId)
+            self.log.debug("Initialised '%s' (%d)",
+                           self.tableName, self.tableId)
         except Exception as e:
-            print "Failed to create table: %s" % e
+            self.log.error("Failed to create table: %s", e)
             try:
                 self.table.delete
             except Exception as ed:
-                print "Failed to delete table: %s" % ed
+                self.log.error("Failed to delete table: %s", ed)
 
             self.table = None
             self.tableId = None
@@ -432,7 +438,7 @@ class FeatureTableConnection(TableConnection):
         if not idx:
             return None
         if len(idx) > 1:
-            print "Multiple rows found, returning last"
+            self.log.warn("Multiple rows found, returning last")
             # Ordering of rows not guaranteed
         return max(idx)
 
