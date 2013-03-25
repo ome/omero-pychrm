@@ -111,7 +111,8 @@ class TableConnection(object):
                     return t
                 print 'Failed to open table %d (attempt %d)' % \
                     (ofile.getId().val, i + 1)
-            raise Exception('Failed to open table %d' % ofile.getId().val)
+            raise TableConnectionError(
+                'Failed to open table %d' % ofile.getId().val)
 
 
         if not tableId:
@@ -272,15 +273,16 @@ class TableConnection(object):
         """
         nv = [len(c.values) for c in columns]
         if len(set(nv)) != 1:
-            raise Exception('All columns must be the same length, received: %s'
-                            % nv)
+            raise TableConnectionError(
+                'All columns must be the same length, received: %s' % nv)
         nv = nv[0]
 
         headers = self.table.getHeaders()
         if len(columns) != len(headers) or \
                 [h.name for h in headers] != [c.name for c in columns] or \
                 [type(h) for h in headers] != [type(c) for c in columns]:
-            raise Exception('Mismatch between columns and table headers')
+            raise TableConnectionError(
+                'Mismatch between columns and table headers')
 
         p = 0
         q = 0
