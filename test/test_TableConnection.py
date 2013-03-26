@@ -29,7 +29,7 @@ import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'utils'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
-from TableConnection import TableConnection, FeatureTableConnection
+from TableConnection import Connection, TableConnection, FeatureTableConnection
 
 
 class ClientHelper(unittest.TestCase):
@@ -45,19 +45,33 @@ class ClientHelper(unittest.TestCase):
         ICE_CONFIG must be set.
         """
         self.cli, self.sess = self.create_client()
-        self.conn = omero.gateway.BlitzGateway(client_obj=self.cli)
-        self.res = self.sess.sharedResources()
         self.tableName = '/test_TableConnection/test.h5'
 
     def tearDown(self):
         self.cli.closeSession()
-        self.conn._closeSession()
+
+
+class TestConnection(ClientHelper):
+    class TestWith(Connection):
+        def __init__(self, client):
+            super(TestConnection.TestWith, self).__init__(client=client)
+            self.x = 1
+
+        def close(self):
+            self.x = 0
+            super(TestConnection.TestWith, self).close()
+
+    def test_enterExitWith(self):
+        cli, sess = self.create_client()
+        with TestConnection.TestWith(client=cli) as c:
+            self.assertEquals(c.x, 1)
+        self.assertEquals(c.x, 0)
 
 
 class TestTableConnection(ClientHelper):
 
     def create_table(self):
-        t = self.res.newTable(0, self.tableName)
+        t = self.sess.sharedResources().newTable(0, self.tableName)
         cols = [omero.grid.LongColumn('lc1', 'l c 1', [1, 2, 3, 4])]
         t.initialize(cols)
         t.addData(cols)

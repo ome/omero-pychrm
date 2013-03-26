@@ -37,24 +37,19 @@ class TableConnectionError(Exception):
     pass
 
 
-class TableConnection(object):
+class Connection(object):
     """
-    A basic client-side wrapper for OMERO.tables which handles opening
-    and closing tables.
+    A wrapper for managing a client session context
     """
 
-    def __init__(self, user = None, passwd = None, host = 'localhost',
-                 client = None, tableName = None):
+    def __init__(self, user = None, passwd = None, host = None, client = None):
         """
-        Create a new table handler, either by specifying user and passwd or by
+        Create a new client session, either by specifying user and passwd or by
         providing a client object (for scripts)
         @param user Username
         @param passwd Password
         @param host The server hostname
         @param client Client object with an active session
-        @param tableName If provided the name of any table opened by subsequent
-        calls will be checked against this, and any new tables will be named
-        by this
         """
 
         self.log = logging.getLogger(__name__)
@@ -73,13 +68,6 @@ class TableConnection(object):
         if (not self.res.areTablesEnabled()):
             raise TableConnectionError('OMERO.tables not enabled')
 
-        repos = self.res.repositories()
-        self.rid = repos.descriptions[0].id.val
-
-        self.tableName = tableName
-        self.tableId = None
-        self.table = None
-
     def __enter__(self):
         self.log.debug('Entering Connection')
         return self
@@ -89,11 +77,50 @@ class TableConnection(object):
         self.close()
 
     def close(self):
+        """
+        Child classes can override this method but must explcitly call this
+        method to ensure the client session is cleaned
+        """
         self.log.debug('Closing Connection')
+        self.conn._closeSession()
+
+
+class TableConnection(Connection):
+    """
+    A basic client-side wrapper for OMERO.tables which handles opening
+    and closing tables.
+    """
+
+    def __init__(self, user = None, passwd = None, host = None, client = None,
+                 tableName = None):
+        """
+        Create a new table handler, either by specifying user and passwd or by
+        providing a client object (for scripts)
+        @param user Username
+        @param passwd Password
+        @param host The server hostname
+        @param client Client object with an active session
+        @param tableName If provided the name of any table opened by subsequent
+        calls will be checked against this, and any new tables will be named
+        by this
+        """
+        super(TableConnection, self).__init__(user, passwd, host, client)
+
+        repos = self.res.repositories()
+        self.rid = repos.descriptions[0].id.val
+
+        self.tableName = tableName
+        self.tableId = None
+        self.table = None
+
+    def close(self):
+        self.log.debug('Closing TableConnection')
         try:
             self.closeTable()
+            self.tableId = None
+            self.table = None
         finally:
-            self.conn._closeSession()
+            super(TableConnection, self).close()
 
 
     def openTable(self, tableId):
