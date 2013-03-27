@@ -33,21 +33,22 @@ basedir = os.getenv('HOME') + '/work/omero-pychrm'
 for p in ['/utils']:
     if basedir + p not in sys.path:
         sys.path.append(basedir + p)
-import FeatureHandler
+import PycharmStorage
 
 
 
-def countCompleted(tc, ds):
+def countCompleted(ftb, ds):
     message = ''
+    tc = ftb.tc
 
     imIds = [im.getId() for im in ds.listChildren()]
-    tid = FeatureHandler.getAttachedTableFile(tc, tc.tableName, ds)
+    tid = PycharmStorage.getAttachedTableFile(ftb.tc, ds)
     if tid is None:
         message += 'Image feature status PRESENT:%d ABSENT:%d\n' % \
             (0, len(imIds))
         return message
 
-    if not FeatureHandler.openTable(tc, tableId=tid):
+    if not ftb.openTable(tid):
         message += 'ERROR: Table not opened\n'
         message += 'Image feature status UNKNOWN:%d\n' % len(imIds)
         return message
@@ -71,27 +72,27 @@ def processImages(client, scriptParams):
 
     tableName = '/Pychrm/' + contextName + '/SmallFeatureSet.h5'
     message += 'tableName:' + tableName + '\n'
-    tc = FeatureHandler.connFeatureTable(client, tableName)
+    ftb = PycharmStorage.FeatureTable(client, tableName)
 
     try:
         # Get the datasets
-        objects, logMessage = script_utils.getObjects(tc.conn, scriptParams)
+        objects, logMessage = script_utils.getObjects(ftb.conn, scriptParams)
         message += logMessage
 
         if not objects:
             return message
 
-        datasets = FeatureHandler.datasetGenerator(tc.conn, dataType, ids)
+        datasets = PycharmStorage.datasetGenerator(ftb.conn, dataType, ids)
         for ds in datasets:
             message += 'Processing dataset id:%d\n' % ds.getId()
-            msg = countCompleted(tc, ds)
+            msg = countCompleted(ftb, ds)
             message += msg
 
     except:
         print message
         raise
     finally:
-        tc.closeTable()
+        ftb.close()
 
     return message
 

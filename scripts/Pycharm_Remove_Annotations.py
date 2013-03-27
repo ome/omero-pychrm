@@ -34,7 +34,7 @@ basedir = os.getenv('HOME') + '/work/omero-pychrm'
 for p in ['/utils']:
     if basedir + p not in sys.path:
         sys.path.append(basedir + p)
-import FeatureHandler
+import PycharmStorage
 
 
 def removeAnnotations(conn, obj, rmTables, rmComments, rmTags):
@@ -43,7 +43,7 @@ def removeAnnotations(conn, obj, rmTables, rmComments, rmTags):
     """
     rmIds = []
     for ann in obj.listAnnotations():
-        if ann.getNs() == FeatureHandler.PYCHRM_NAMESPACE:
+        if ann.getNs() == PycharmStorage.PYCHRM_NAMESPACE:
             if (rmTables and isinstance(ann, FileAnnotationWrapper)) or \
                 (rmComments and isinstance(ann, CommentAnnotationWrapper)):
                 rmIds.append(ann.getId())
@@ -78,7 +78,7 @@ def removeTagAnnotations(conn, obj):
     params = omero.sys.Parameters()
     params.map = {
         'parentid': wrap(obj.getId()),
-        'ns': wrap(FeatureHandler.CLASSIFIER_PYCHRM_NAMESPACE + '/%')
+        'ns': wrap(PycharmStorage.CLASSIFIER_PYCHRM_NAMESPACE + '/%')
         }
     anns = conn.getQueryService().findAllByQuery(q, params)
 
@@ -92,7 +92,8 @@ def removeTagAnnotations(conn, obj):
     if rmIds:
         conn.deleteObjects(linkType, rmIds)
 
-    message = 'Removed tags: %s from id:%d' % (rmTags, obj.getId())
+    message = 'Removed tags: %s from %s id:%d\n' % (
+        rmTags, obj.OMERO_CLASS, obj.getId())
     return message
 
 

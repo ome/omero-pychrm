@@ -99,7 +99,11 @@ class FeatureTable(object):
         self.tc = FeatureTableConnection(client=client, tableName=tableName)
 
     def close(self):
-        self.tc.close()
+        self.tc.close(False)
+
+    @property
+    def conn(self):
+        return self.tc.conn
 
 
     def createTable(self, featureNames):
@@ -234,6 +238,21 @@ class ClassifierTables(object):
         self.tcF = TableConnection(client=client, tableName=tableNameF)
         self.tcW = TableConnection(client=client, tableName=tableNameW)
         self.tcL = TableConnection(client=client, tableName=tableNameL)
+
+    def close(self):
+        self.tcF.close(False)
+        self.tcW.close(False)
+        self.tcL.close(False)
+
+    def openTables(self, tidF, tidW, tidL):
+        try:
+            self.tcF.openTable(tidF)
+            self.tcW.openTable(tidW)
+            self.tcL.openTable(tidL)
+            return True
+        except TableConnectionError as e:
+            print "Failed to open one or more tables: %s" % e
+            return False
 
 
     def createClassifierTables(self, featureNames):

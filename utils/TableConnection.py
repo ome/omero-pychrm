@@ -60,7 +60,7 @@ class Connection(object):
             sess = client.createSession(user, passwd)
             client.enableKeepAlive(60)
         else:
-             sess = client.getSession()
+            sess = client.getSession()
 
         self.conn = BlitzGateway(client_obj = client)
 
@@ -113,14 +113,19 @@ class TableConnection(Connection):
         self.tableId = None
         self.table = None
 
-    def close(self):
+    def close(self, parent=True):
+        """
+        Close all tables.
+        @param parent if True then also call the parent class close() method
+        """
         self.log.debug('Closing TableConnection')
         try:
             self.closeTable()
             self.tableId = None
             self.table = None
         finally:
-            super(TableConnection, self).close()
+            if parent:
+                super(TableConnection, self).close()
 
 
     def openTable(self, tableId):
