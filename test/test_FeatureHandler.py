@@ -31,7 +31,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
 #from TableConnection import Connection, TableConnection, FeatureTableConnection
 import FeatureHandler
-from FeatureHandler import FeatureTable
+from FeatureHandler import FeatureTable, ClassifierTables
 
 
 class ClientHelper(unittest.TestCase):
@@ -51,6 +51,13 @@ class ClientHelper(unittest.TestCase):
 
     def tearDown(self):
         self.cli.closeSession()
+
+
+class TestFeatures(object):
+    def __init__(self, inc = 0):
+        self.names = ['a [0]', 'a [1]', 'b [0]']
+        self.values = map(lambda x: x + inc, [10., 11., 12.])
+
 
 class TestFeatureHandler(unittest.TestCase):
 
@@ -100,11 +107,6 @@ class TestFeatureTable(ClientHelper):
         ft.close()
         return tid
 
-    class TestFeatures(object):
-        def __init__(self):
-            self.names = ['a [0]', 'a [1]', 'b [0]']
-            self.values = [10., 11., 12.]
-
 
     def test_createTable(self):
         tid = self.create_table()
@@ -124,7 +126,7 @@ class TestFeatureTable(ClientHelper):
         ft = FeatureTable(client=self.cli, tableName=self.tableName)
         t = ft.openTable(tid)
 
-        fts = TestFeatureTable.TestFeatures()
+        fts = TestFeatures()
         self.assertTrue(ft.isTableCompatible(fts))
         fts.names.append('a [2]')
         fts.values.append(13.)
@@ -140,7 +142,7 @@ class TestFeatureTable(ClientHelper):
         tid = self.create_table_with_data()
         ft = FeatureTable(client=self.cli, tableName=self.tableName)
         ft.openTable(tid)
-        fts = TestFeatureTable.TestFeatures()
+        fts = TestFeatures()
         ft.saveFeatures(101, fts)
 
         self.assertEqual(ft.tc.getNumberOfRows(), 3)
@@ -171,6 +173,96 @@ class TestFeatureTable(ClientHelper):
         self.assertEqual(names, ['a [0]', 'a [1]', 'b [0]'])
         self.assertEqual(values, [[1., 2., 5.], [3., 4., 6.]])
         self.assertEqual(ids, [7, 8])
+
+
+class TestClassifierTables(ClientHelper):
+
+    def setUp(self):
+        super(TestClassifierTables, self).setUp()
+        self.tableNameF = '/test_FeatureHandler/ClassFeatures.h5'
+        self.tableNameW = '/test_FeatureHandler/Weights.h5'
+        self.tableNameL = '/test_FeatureHandler/ClassLabels.h5'
+
+    def create_classifierTables(self):
+        cli, sess = self.create_client()
+        ct = ClassifierTables(cli, self.tableNameF, self.tableNameW,
+                              self.tableNameL)
+        return ct
+
+
+    def test_createClassifierTables(self):
+        ct = self.create_classifierTables()
+        fts = TestFeatures()
+        ct.createClassifierTables(fts.names)
+
+        headers = ct.tcF.getHeaders()
+        self.assertEqual([h.name for h in headers],
+                         ['id', 'label', 'features'])
+
+        headers = ct.tcW.getHeaders()
+        self.assertEqual([h.name for h in headers], ['featurename', 'weight'])
+
+        headers = ct.tcL.getHeaders()
+        self.assertEqual([h.name for h in headers], ['classID', 'className'])
+
+    def test_saveClassifierTables(self):
+        ct = self.create_classifierTables()
+        fts0 = TestFeatures()
+        fts1 = TestFeatures(10)
+        ct.createClassifierTables(fts0.names)
+
+        ids = [7, 8]
+        classIds = [1, 0]
+        featureMatrix = [fts0.values, fts1.values]
+        featureNames = fts0.names
+        weights = [0.125, 0.375, 0.5]
+        classNames = ['Cat', 'Hedgehog']
+        ct.saveClassifierTables(ids, classIds, featureMatrix,
+                                featureNames, weights, classNames)
+
+        self.assertEqual(ct.tcF.getNumberOfRows(), 2)
+        self.assertEqual(ct.tcW.getNumberOfRows(), 3)
+        self.assertEqual(ct.tcL.getNumberOfRows(), 2)
+
+        d = ct.tcF.table.readCoordinates([0, 1])
+        self.assertEqual(d.columns[0].values, [7, 8])
+        self.assertEqual(d.columns[1].values, [1, 0])
+        self.assertEqual(d.columns[2].values,
+                         [[10., 11., 12.], [20., 21., 22.]])
+
+        d = ct.tcW.table.readCoordinates([0, 1, 2])
+        self.assertEqual(d.columns[0].values, ['a [0]', 'a [1]', 'b [0]'])
+        self.assertEqual(d.columns[1].values, [0.125, 0.375, 0.5])
+
+        d = ct.tcL.table.readCoordinates([0, 1])
+        self.assertEqual(d.columns[0].values, [0, 1])
+        self.assertEqual(d.columns[1].values, ['Cat', 'Hedgehog'])
+
+    def test_loadClassifierTables(self):
+        ct = self.create_classifierTables()
+        fts0 = TestFeatures()
+        fts1 = TestFeatures(10)
+        ct.createClassifierTables(fts0.names)
+
+        ids = [7, 8]
+        classIds = [1, 0]
+        featureMatrix = [fts0.values, fts1.values]
+        featureNames = fts0.names
+        weights = [0.125, 0.375, 0.5]
+        classNames = ['Cat', 'Hedgehog']
+        ct.saveClassifierTables(ids, classIds, featureMatrix,
+                                featureNames, weights, classNames)
+
+        data = ct.loadClassifierTables()
+
+        self.assertEqual(data['ids'], [7, 8])
+        self.assertEqual(data['trainClassIds'], [1, 0])
+        self.assertEqual(data['featureMatrix'],
+                         [[10., 11., 12.], [20., 21., 22.]])
+        self.assertEqual(data['featureNames'], ['a [0]', 'a [1]', 'b [0]'])
+        self.assertEqual(data['weights'], [0.125, 0.375, 0.5])
+        self.assertEqual(data['classIds'], [0, 1])
+        self.assertEqual(data['classNames'], ['Cat', 'Hedgehog'])
 
 
 

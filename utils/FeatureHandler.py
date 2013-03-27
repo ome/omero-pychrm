@@ -222,40 +222,39 @@ class FeatureTable(object):
 # Save a classifier
 ######################################################################
 
-def createClassifierTables(tc1, tc2, tc3, featureNames):
+class ClassifierTables(object):
     """
     Create a set of OMERO.tables for storing the state of a trained image
     classifier. The first table stores the training samples with reduced
     features and classes, the second stores a list of weights and feature
     names, and the third stores the class IDs and class names
     """
-    schema1 = [
-        omero.grid.LongColumn('id'),
-        omero.grid.LongColumn('label'),
-        omero.grid.DoubleArrayColumn('features', '', len(featureNames)),
-        ]
-    tc1.newTable(schema1)
 
-    schema2 = [
-        omero.grid.StringColumn('featurename', '', 1024),
-        omero.grid.DoubleColumn('weight'),
-        ]
-    tc2.newTable(schema2)
-
-    schema3 = [
-        omero.grid.LongColumn('classID'),
-        omero.grid.StringColumn('className', '', 1024),
-        ]
-    tc3.newTable(schema3)
+    def __init__(self, client, tableNameF, tableNameW, tableNameL):
+        self.tcF = TableConnection(client=client, tableName=tableNameF)
+        self.tcW = TableConnection(client=client, tableName=tableNameW)
+        self.tcL = TableConnection(client=client, tableName=tableNameL)
 
 
-class ClassifierTables(object):
+    def createClassifierTables(self, featureNames):
+        schemaF = [
+            omero.grid.LongColumn('id'),
+            omero.grid.LongColumn('label'),
+            omero.grid.DoubleArrayColumn('features', '', len(featureNames)),
+            ]
+        self.tcF.newTable(schemaF)
 
-    #def connClassifierTable(client, tableName):
-    def __init__(client, tableName1, tableName2, tableName3):
-        self.tcF = TableConnection(client=client, tableName=tableName1)
-        self.tcW = TableConnection(client=client, tableName=tableName2)
-        self.tcL = TableConnection(client=client, tableName=tableName3)
+        schemaW = [
+            omero.grid.StringColumn('featurename', '', 1024),
+            omero.grid.DoubleColumn('weight'),
+            ]
+        self.tcW.newTable(schemaW)
+
+        schemaL = [
+            omero.grid.LongColumn('classID'),
+            omero.grid.StringColumn('className', '', 1024),
+            ]
+        self.tcL.newTable(schemaL)
 
 
     def saveClassifierTables(self,
@@ -264,47 +263,48 @@ class ClassifierTables(object):
         """
         Save the classifier state (reduced features, labels and weights)
         """
-        cols1 = self.tc1.getHeaders()
-        cols1[0].values = ids
-        cols1[1].values = classIds
-        cols1[2].values = featureMatrix
-        self.tc1.chunkedAddData(cols1, CHUNK_SIZE)
+        colsF = self.tcF.getHeaders()
+        colsF[0].values = ids
+        colsF[1].values = classIds
+        colsF[2].values = featureMatrix
+        self.tcF.chunkedAddData(colsF, CHUNK_SIZE)
 
-        cols2 = self.tc2.getHeaders()
-        cols2[0].values = featureNames
-        cols2[1].values = weights
-        self.tc2.chunkedAddData(cols2, CHUNK_SIZE)
+        colsW = self.tcW.getHeaders()
+        colsW[0].values = featureNames
+        colsW[1].values = weights
+        self.tcW.chunkedAddData(colsW, CHUNK_SIZE)
 
-        cols3 = self.tc3.getHeaders()
-        cols3[0].values = range(len(classNames))
-        cols3[1].values = classNames
-        self.tc3.chunkedAddData(cols3, CHUNK_SIZE)
+        colsL = self.tcL.getHeaders()
+        colsL[0].values = range(len(classNames))
+        colsL[1].values = classNames
+        self.tcL.chunkedAddData(colsL, CHUNK_SIZE)
 
 
     def loadClassifierTables(self):
         """
         Load the classifier state (reduced features, labels and weights)
         """
-        d1 = self.tc1.chunkedRead(
-            range(len(tc1.getHeaders())), 0, tc1.getNumberOfRows(), CHUNK_SIZE)
-        cols1 = d1.columns
-        ids = cols1[0].values
-        trainClassIds = cols1[1].values
-        featureMatrix = cols1[2].values
+        dF = self.tcF.chunkedRead(
+            range(len(self.tcF.getHeaders())), 0,
+            self.tcF.getNumberOfRows(), CHUNK_SIZE)
+        colsF = dF.columns
+        ids = colsF[0].values
+        trainClassIds = colsF[1].values
+        featureMatrix = colsF[2].values
 
-        d2 = self.tc2.chunkedRead(
-            range(len(self.tc2.getHeaders())), 0,
-            self.tc2.getNumberOfRows(), CHUNK_SIZE)
-        cols2 = d2.columns
-        featureNames = cols2[0].values
-        weights = cols2[1].values
+        dW = self.tcW.chunkedRead(
+            range(len(self.tcW.getHeaders())), 0,
+            self.tcW.getNumberOfRows(), CHUNK_SIZE)
+        colsW = dW.columns
+        featureNames = colsW[0].values
+        weights = colsW[1].values
 
-        d3 = self.tc3.chunkedRead(
-            range(len(self.tc3.getHeaders())), 0,
-            self.tc3.getNumberOfRows(), CHUNK_SIZE)
-        cols3 = d3.columns
-        classIds = cols3[0].values
-        classNames = cols3[1].values
+        dL = self.tcL.chunkedRead(
+            range(len(self.tcL.getHeaders())), 0,
+            self.tcL.getNumberOfRows(), CHUNK_SIZE)
+        colsL = dL.columns
+        classIds = colsL[0].values
+        classNames = colsL[1].values
 
         return {'ids': ids, 'trainClassIds': trainClassIds,
                 'featureMatrix': featureMatrix,
