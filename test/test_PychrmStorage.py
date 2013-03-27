@@ -29,9 +29,8 @@ import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'utils'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
-#from TableConnection import Connection, TableConnection, FeatureTableConnection
-import FeatureHandler
-from FeatureHandler import FeatureTable, ClassifierTables
+import PychrmStorage
+from PychrmStorage import FeatureTable, ClassifierTables
 
 
 class ClientHelper(unittest.TestCase):
@@ -47,7 +46,7 @@ class ClientHelper(unittest.TestCase):
         ICE_CONFIG must be set.
         """
         self.cli, self.sess = self.create_client()
-        self.tableName = '/test_FeatureHandler/test.h5'
+        self.tableName = '/test_PychrmStorage/test.h5'
 
     def tearDown(self):
         self.cli.closeSession()
@@ -59,20 +58,20 @@ class TestFeatures(object):
         self.values = map(lambda x: x + inc, [10., 11., 12.])
 
 
-class TestFeatureHandler(unittest.TestCase):
+class TestPychrmStorage(unittest.TestCase):
 
     def test_parseFeatureName(self):
-        r = FeatureHandler.parseFeatureName('a b [321]')
+        r = PychrmStorage.parseFeatureName('a b [321]')
         self.assertEqual(len(r), 2)
         self.assertEqual(r[0], 'a b')
         self.assertEqual(r[1], 321)
 
     def createFeatureName(self):
-        r = FeatureHandler.createFeatureName('a b', 321)
+        r = PychrmStorage.createFeatureName('a b', 321)
         self.assertEqual(r, 'a b [321]')
 
     def featureSizes(self):
-        ftsz = FeatureHandler.featureSizes(['a b [12]', 'c d [3]', 'a b [14]'])
+        ftsz = PychrmStorage.featureSizes(['a b [12]', 'c d [3]', 'a b [14]'])
         self.assertEqual(len(ftsz.keys), 2)
         self.assertIn(ftsz, 'a b')
         self.assertIn(ftsz, 'c d')
@@ -179,9 +178,9 @@ class TestClassifierTables(ClientHelper):
 
     def setUp(self):
         super(TestClassifierTables, self).setUp()
-        self.tableNameF = '/test_FeatureHandler/ClassFeatures.h5'
-        self.tableNameW = '/test_FeatureHandler/Weights.h5'
-        self.tableNameL = '/test_FeatureHandler/ClassLabels.h5'
+        self.tableNameF = '/test_PychrmStorage/ClassFeatures.h5'
+        self.tableNameW = '/test_PychrmStorage/Weights.h5'
+        self.tableNameL = '/test_PychrmStorage/ClassLabels.h5'
 
     def create_classifierTables(self):
         cli, sess = self.create_client()
@@ -269,27 +268,27 @@ class TestClassifierTables(ClientHelper):
 class TestAnnotations(ClientHelper):
 
     def test_addFileAnnotationTo(self):
-        FeatureHandler.addFileAnnotationTo(tc, obj)
+        PychrmStorage.addFileAnnotationTo(tc, obj)
 
     def test_getAttachedTableFile(self):
-        FeatureHandler.getAttachedTableFile(tc, obj)
+        PychrmStorage.getAttachedTableFile(tc, obj)
 
     def test_addCommentTo(self):
-        FeatureHandler.addCommentTo(conn, comment, objType, objId)
+        PychrmStorage.addCommentTo(conn, comment, objType, objId)
 
     def test_addTagTo(self):
-        FeatureHandler.addTagTo(conn, tag, objType, objId)
+        PychrmStorage.addTagTo(conn, tag, objType, objId)
 
     def test_createClassifierTagSet(self):
-        FeatureHandler.createClassifierTagSet(
+        PychrmStorage.createClassifierTagSet(
             conn, classifierName, instanceName, labels, project)
 
     def test_getClassifierTagSet(self):
-        FeatureHandler.getClassifierTagSet(
+        PychrmStorage.getClassifierTagSet(
             classifierName, instanceName, project)
 
     def test_datasetGenerator(self):
-        FeatureHandler.datasetGenerator(conn, dataType, ids)
+        PychrmStorage.datasetGenerator(conn, dataType, ids)
 
 
 
