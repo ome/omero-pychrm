@@ -29,8 +29,8 @@ import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'utils'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
-import PychrmStorage
-from PychrmStorage import FeatureTable, ClassifierTables
+import PycharmStorage
+from PycharmStorage import FeatureTable, ClassifierTables
 
 
 class ClientHelper(unittest.TestCase):
@@ -46,7 +46,7 @@ class ClientHelper(unittest.TestCase):
         ICE_CONFIG must be set.
         """
         self.cli, self.sess = self.create_client()
-        self.tableName = '/test_PychrmStorage/test.h5'
+        self.tableName = '/test_PycharmStorage/test.h5'
 
     def tearDown(self):
         self.cli.closeSession()
@@ -58,20 +58,20 @@ class TestFeatures(object):
         self.values = map(lambda x: x + inc, [10., 11., 12.])
 
 
-class TestPychrmStorage(unittest.TestCase):
+class TestPycharmStorage(unittest.TestCase):
 
     def test_parseFeatureName(self):
-        r = PychrmStorage.parseFeatureName('a b [321]')
+        r = PycharmStorage.parseFeatureName('a b [321]')
         self.assertEqual(len(r), 2)
         self.assertEqual(r[0], 'a b')
         self.assertEqual(r[1], 321)
 
     def createFeatureName(self):
-        r = PychrmStorage.createFeatureName('a b', 321)
+        r = PycharmStorage.createFeatureName('a b', 321)
         self.assertEqual(r, 'a b [321]')
 
     def featureSizes(self):
-        ftsz = PychrmStorage.featureSizes(['a b [12]', 'c d [3]', 'a b [14]'])
+        ftsz = PycharmStorage.featureSizes(['a b [12]', 'c d [3]', 'a b [14]'])
         self.assertEqual(len(ftsz.keys), 2)
         self.assertIn(ftsz, 'a b')
         self.assertIn(ftsz, 'c d')
@@ -178,9 +178,9 @@ class TestClassifierTables(ClientHelper):
 
     def setUp(self):
         super(TestClassifierTables, self).setUp()
-        self.tableNameF = '/test_PychrmStorage/ClassFeatures.h5'
-        self.tableNameW = '/test_PychrmStorage/Weights.h5'
-        self.tableNameL = '/test_PychrmStorage/ClassLabels.h5'
+        self.tableNameF = '/test_PycharmStorage/ClassFeatures.h5'
+        self.tableNameW = '/test_PycharmStorage/Weights.h5'
+        self.tableNameL = '/test_PycharmStorage/ClassLabels.h5'
 
     def create_classifierTables(self):
         cli, sess = self.create_client()
@@ -268,27 +268,27 @@ class TestClassifierTables(ClientHelper):
 class TestAnnotations(ClientHelper):
 
     def test_addFileAnnotationTo(self):
-        PychrmStorage.addFileAnnotationTo(tc, obj)
+        PycharmStorage.addFileAnnotationTo(tc, obj)
 
     def test_getAttachedTableFile(self):
-        PychrmStorage.getAttachedTableFile(tc, obj)
+        PycharmStorage.getAttachedTableFile(tc, obj)
 
     def test_addCommentTo(self):
-        PychrmStorage.addCommentTo(conn, comment, objType, objId)
+        PycharmStorage.addCommentTo(conn, comment, objType, objId)
 
     def test_addTagTo(self):
-        PychrmStorage.addTagTo(conn, tag, objType, objId)
+        PycharmStorage.addTagTo(conn, tag, objType, objId)
 
     def test_createClassifierTagSet(self):
-        PychrmStorage.createClassifierTagSet(
+        PycharmStorage.createClassifierTagSet(
             conn, classifierName, instanceName, labels, project)
 
     def test_getClassifierTagSet(self):
-        PychrmStorage.getClassifierTagSet(
+        PycharmStorage.getClassifierTagSet(
             classifierName, instanceName, project)
 
     def test_datasetGenerator(self):
-        PychrmStorage.datasetGenerator(conn, dataType, ids)
+        PycharmStorage.datasetGenerator(conn, dataType, ids)
 
 
 
