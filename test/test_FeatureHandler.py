@@ -265,6 +265,33 @@ class TestClassifierTables(ClientHelper):
         self.assertEqual(data['classNames'], ['Cat', 'Hedgehog'])
 
 
+@unittest.skip("TODO: Implement")
+class TestAnnotations(ClientHelper):
+
+    def test_addFileAnnotationTo(self):
+        FeatureHandler.addFileAnnotationTo(tc, obj)
+
+    def test_getAttachedTableFile(self):
+        FeatureHandler.getAttachedTableFile(tc, obj)
+
+    def test_addCommentTo(self):
+        FeatureHandler.addCommentTo(conn, comment, objType, objId)
+
+    def test_addTagTo(self):
+        FeatureHandler.addTagTo(conn, tag, objType, objId)
+
+    def test_createClassifierTagSet(self):
+        FeatureHandler.createClassifierTagSet(
+            conn, classifierName, instanceName, labels, project)
+
+    def test_getClassifierTagSet(self):
+        FeatureHandler.getClassifierTagSet(
+            classifierName, instanceName, project)
+
+    def test_datasetGenerator(self):
+        FeatureHandler.datasetGenerator(conn, dataType, ids)
+
+
 
 if __name__ == '__main__':
     unittest.main()
