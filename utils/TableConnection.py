@@ -248,7 +248,7 @@ class TableConnection(Connection):
         except Exception as e:
             self.log.error("Failed to create table: %s", e)
             try:
-                self.table.delete
+                self.table.delete()
             except Exception as ed:
                 self.log.error("Failed to delete table: %s", ed)
 
