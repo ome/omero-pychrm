@@ -404,7 +404,8 @@ class FeatureTableConnection(TableConnection):
         @param stop The last + 1 row to be read
         @return A list of columns with the requested array elements, which
         may be empty (null). If the id column is requested this will not be
-        an array.
+        an array. Columns are returned in the order given by
+        colArrayNumbers.keys()
         """
 
         colNumbers = colArrayNumbers.keys()

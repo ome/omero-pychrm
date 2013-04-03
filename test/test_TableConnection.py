@@ -24,6 +24,7 @@
 import unittest
 import omero
 from omero.rtypes import unwrap
+import collections
 
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'utils'))
@@ -194,13 +195,17 @@ class TestFeatureTableConnection(ClientHelper):
         self.assertEqual(bs[2].values, [False, True, True, False])
         self.assertEqual(bs[0].values, [True, False, True, False])
 
-    @unittest.expectedFailure
     def test_readSubArray(self):
         tid = self.create_table_with_data()
         ftc = FeatureTableConnection(client=self.cli, tableName=self.tableName)
         ftc.openTable(tid)
 
-        can = {2:[0], 1:[0,2]}
+        can = {1:[0,2], 2:[0]}
+        xs = ftc.readSubArray(can, 0, 4)
+        self.assertEqual(xs[0].values, [[], [1., 3.], [4., 6.], []])
+        self.assertEqual(xs[1].values, [[7.], [], [8.], []])
+
+        can = collections.OrderedDict([(2, [0]), (1, [0,2])])
         xs = ftc.readSubArray(can, 0, 4)
         self.assertEqual(xs[1].values, [[], [1., 3.], [4., 6.], []])
         self.assertEqual(xs[0].values, [[7.], [], [8.], []])
