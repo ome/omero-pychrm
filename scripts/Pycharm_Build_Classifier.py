@@ -1,3 +1,24 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+#
+# Copyright (C) 2013 University of Dundee & Open Microscopy Environment.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
 #
 #
 from omero import scripts
@@ -12,14 +33,14 @@ basedir = os.getenv('HOME') + '/work/omero-pychrm'
 for p in ['/utils', '/pychrm-lib']:
     if basedir + p not in sys.path:
         sys.path.append(basedir + p)
-import FeatureHandler
+import PycharmStorage
 import pychrm.FeatureSet
 
 
 
 
 
-def createWeights(tcIn, tcF, tcW, tcL, project, featureThreshold, imagesOnly):
+def createWeights(ftb, ctb, project, featureThreshold, imagesOnly):
     # Build the classifier (basically a set of weights)
     message = ''
     trainFts = pychrm.FeatureSet.FeatureSet_Discrete()
@@ -27,7 +48,7 @@ def createWeights(tcIn, tcF, tcW, tcL, project, featureThreshold, imagesOnly):
     classId = 0
     for ds in project.listChildren():
         message += 'Processing dataset id:%d\n' % ds.getId()
-        message += addToFeatureSet(tcIn, ds, trainFts, classId, imagesOnly)
+        message += addToFeatureSet(ftb, ds, trainFts, classId, imagesOnly)
         classId += 1
 
     tmp = trainFts.ContiguousDataMatrix()
@@ -43,7 +64,7 @@ def createWeights(tcIn, tcF, tcW, tcL, project, featureThreshold, imagesOnly):
     # Save the features, weights and classes to tables
     # TODO:Delete existing tables
     #if getProjectTableFile(tcOutF, tcF.tableName, proj):
-    FeatureHandler.createClassifierTables(tcF, tcW, tcL, weights.names)
+    ctb.createClassifierTables(weights.names)
     message += 'Created classifier tables\n'
 
     # We've (ab)used imagenames_list to hold the image ids
@@ -56,19 +77,18 @@ def createWeights(tcIn, tcF, tcW, tcL, project, featureThreshold, imagesOnly):
     featureWeights = weights.values
     classNames = trainFts.classnames_list
 
-    FeatureHandler.saveClassifierTables(
-        tcF, tcW, tcL, ids, classIds, featureMatrix,
-        featureNames, featureWeights, classNames)
+    ctb.saveClassifierTables(ids, classIds, featureMatrix,
+                             featureNames, featureWeights, classNames)
 
-    FeatureHandler.addFileAnnotationTo(tcF, tcF.table, project)
-    FeatureHandler.addFileAnnotationTo(tcW, tcW.table, project)
-    FeatureHandler.addFileAnnotationTo(tcL, tcL.table, project)
+    PycharmStorage.addFileAnnotationTo(ctb.tcF, project)
+    PycharmStorage.addFileAnnotationTo(ctb.tcW, project)
+    PycharmStorage.addFileAnnotationTo(ctb.tcL, project)
 
     message += 'Saved classifier\n'
 
-    classifierName = FeatureHandler.CLASSIFIER_PYCHRM_NAMESPACE
-    ns = FeatureHandler.createClassifierTagSet(
-        tcL, classifierName, project.getName(), classNames, project)
+    classifierName = PycharmStorage.CLASSIFIER_PYCHRM_NAMESPACE
+    ns = PycharmStorage.createClassifierTagSet(
+        ctb.tcL.conn, classifierName, project.getName(), classNames, project)
     message += 'Created tagset: %s\n' % ns
 
     return trainFts, weights, message
@@ -81,12 +101,12 @@ def reduceFeatures(fts, weights):
     return ftsr
 
 
-def addToFeatureSet(tcIn, ds, fts, classId, imagesOnly):
+def addToFeatureSet(ftb, ds, fts, classId, imagesOnly):
     message = ''
 
-    tid = FeatureHandler.getAttachedTableFile(tcIn, tcIn.tableName, ds)
+    tid = PycharmStorage.getAttachedTableFile(ftb.tc, ds)
     if tid:
-        if not FeatureHandler.openTable(tcIn, tableId=tid):
+        if not ftb.openTable(tid):
             return message + '\nERROR: Table not opened'
         message += 'Opened table id:%d\n' % tid
     else:
@@ -100,12 +120,12 @@ def addToFeatureSet(tcIn, ds, fts, classId, imagesOnly):
             message += '\tProcessing features for image id:%d\n' % imId
 
             sig = pychrm.FeatureSet.Signatures()
-            (sig.names, sig.values) = FeatureHandler.loadFeatures(tcIn, imId)
+            (sig.names, sig.values) = ftb.loadFeatures(imId)
             sig.source_file = str(imId)
             fts.AddSignature(sig, classId)
 
     else:
-        names, values, ids = FeatureHandler.bulkLoadFeatures(tcIn)
+        names, values, ids = ftb.bulkLoadFeatures()
         message += '\tProcessing all features for dataset id:%d\n' % ds.getId()
 
         for imId, vals in izip(ids, values):
@@ -134,40 +154,36 @@ def trainClassifier(client, scriptParams):
 
     projectId = projectId[0]
 
-    tableNameIn = '/Pychrm/' + contextName + FeatureHandler.SMALLFEATURES_TABLE
+    tableNameIn = '/Pychrm/' + contextName + PycharmStorage.SMALLFEATURES_TABLE
     tableNameOutF = '/Pychrm/' + contextName + \
-        FeatureHandler.CLASS_FEATURES_TABLE
+        PycharmStorage.CLASS_FEATURES_TABLE
     tableNameOutW = '/Pychrm/' + contextName + \
-        FeatureHandler.CLASS_WEIGHTS_TABLE
+        PycharmStorage.CLASS_WEIGHTS_TABLE
     tableNameOutL = '/Pychrm/' + contextName + \
-        FeatureHandler.CLASS_LABELS_TABLE
+        PycharmStorage.CLASS_LABELS_TABLE
     message += 'tableNameIn:' + tableNameIn + '\n'
     message += 'tableNameOutF:' + tableNameOutF + '\n'
     message += 'tableNameOutW:' + tableNameOutW + '\n'
     message += 'tableNameOutL:' + tableNameOutL + '\n'
 
-    tcIn = FeatureHandler.connFeatureTable(client, tableNameIn)
-    tcOutF = FeatureHandler.connClassifierTable(client, tableNameOutF)
-    tcOutW = FeatureHandler.connClassifierTable(client, tableNameOutW)
-    tcOutL = FeatureHandler.connClassifierTable(client, tableNameOutL)
+    ftb = PycharmStorage.FeatureTable(client, tableNameIn)
+    ctb = PycharmStorage.ClassifierTables(
+        client, tableNameOutF, tableNameOutW, tableNameOutL)
 
     try:
         # Training
         message += 'Training classifier\n'
-        trainProject = tcIn.conn.getObject(dataType, projectId)
+        trainProject = ftb.conn.getObject(dataType, projectId)
         trainFts, weights, msg = createWeights(
-            tcIn, tcOutF, tcOutW, tcOutL, trainProject, featureThreshold,
-            imagesOnly)
+            ftb, ctb, trainProject, featureThreshold, imagesOnly)
         message += msg
 
     except:
         print message
         raise
     finally:
-        tcIn.closeTable()
-        tcOutF.closeTable()
-        tcOutW.closeTable()
-        tcOutL.closeTable()
+        ftb.close()
+        ctb.close()
 
     return message
 

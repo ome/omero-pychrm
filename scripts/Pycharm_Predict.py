@@ -1,3 +1,24 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+#
+# Copyright (C) 2013 University of Dundee & Open Microscopy Environment.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
 #
 #
 from omero import scripts
@@ -12,25 +33,23 @@ basedir = os.getenv('HOME') + '/work/omero-pychrm'
 for p in ['/utils', '/pychrm-lib']:
     if basedir + p not in sys.path:
         sys.path.append(basedir + p)
-import FeatureHandler
+import PycharmStorage
 import pychrm.FeatureSet
 
 
 
-def loadClassifier(tcF, tcW, tcL, project):
-    tidF = FeatureHandler.getAttachedTableFile(tcF, tcF.tableName, project)
-    tidW = FeatureHandler.getAttachedTableFile(tcW, tcW.tableName, project)
-    tidL = FeatureHandler.getAttachedTableFile(tcL, tcL.tableName, project)
+def loadClassifier(ctb, project):
+    tidF = PycharmStorage.getAttachedTableFile(ctb.tcF, project)
+    tidW = PycharmStorage.getAttachedTableFile(ctb.tcW, project)
+    tidL = PycharmStorage.getAttachedTableFile(ctb.tcL, project)
 
     if tidF is None or tidW is None or tidL is None:
         raise Exception('Incomplete set of classifier tables: %s' %
                         (tidF, tidW, tidL))
 
-    FeatureHandler.openTable(tcF, tableId=tidF)
-    FeatureHandler.openTable(tcW, tableId=tidW)
-    FeatureHandler.openTable(tcL, tableId=tidL)
+    ctb.openTables(tidF, tidW, tidL)
 
-    cls = FeatureHandler.loadClassifierTables(tcF, tcW, tcL)
+    cls = ctb.loadClassifierTables()
     #ids,trainClassIds,featureMatrix,featureNames,weights,classIds,classNames
 
     trainFts = pychrm.FeatureSet.FeatureSet_Discrete()
@@ -72,11 +91,11 @@ def loadClassifier(tcF, tcW, tcL, project):
 
 
 
-def predictDataset(tcIn, trainFts, predDs, weights):
+def predictDataset(ftb, trainFts, predDs, weights):
     message = ''
     predictFts = pychrm.FeatureSet.FeatureSet_Discrete()
     classId = 0
-    message += addToFeatureSet(tcIn, predDs, predictFts, classId)
+    message += addToFeatureSet(ftb, predDs, predictFts, classId)
     tmp = predictFts.ContiguousDataMatrix()
 
     predictFts = reduceFeatures(predictFts, weights)
@@ -92,7 +111,7 @@ def formatPredResult(r):
          ' '.join(['%.3f' % p for p in r.marginal_probabilities]))
 
 
-def addPredictionsToImages(tc, prediction, dsId, commentImages, tagSet):
+def addPredictionsToImages(conn, prediction, dsId, commentImages, tagSet):
     """
     Add a comment to the dataset containing the prediction results.
     @param commentImages If true add comment to individual images as well
@@ -112,15 +131,15 @@ def addPredictionsToImages(tc, prediction, dsId, commentImages, tagSet):
         imId = long(r.source_file)
 
         if commentImages:
-            message += FeatureHandler.addCommentTo(tc, c, 'Image', imId)
-        im = tc.conn.getObject('Image', imId)
+            message += PycharmStorage.addCommentTo(conn, c, 'Image', imId)
+        im = conn.getObject('Image', imId)
         dsComment += im.getName() + ' ' + c + '\n'
 
         if tagMap:
             tag = tagMap[r.predicted_class_name]._obj
-            message += FeatureHandler.addTagTo(tc, tag, 'Image', imId)
+            message += PycharmStorage.addTagTo(conn, tag, 'Image', imId)
 
-    message += FeatureHandler.addCommentTo(tc, dsComment, 'Dataset', dsId)
+    message += PycharmStorage.addCommentTo(conn, dsComment, 'Dataset', dsId)
     return message
 
 
@@ -131,12 +150,12 @@ def reduceFeatures(fts, weights):
     return ftsr
 
 
-def addToFeatureSet(tcIn, ds, fts, classId):
+def addToFeatureSet(ftb, ds, fts, classId):
     message = ''
 
-    tid = FeatureHandler.getAttachedTableFile(tcIn, tcIn.tableName, ds)
+    tid = PycharmStorage.getAttachedTableFile(ftb.tc, ds)
     if tid:
-        if not FeatureHandler.openTable(tcIn, tableId=tid):
+        if not ftb.openTable(tid):
             return message + '\nERROR: Table not opened'
         message += 'Opened table id:%d\n' % tid
     else:
@@ -150,7 +169,7 @@ def addToFeatureSet(tcIn, ds, fts, classId):
         #message += extractFeatures(tc, d, im = image) + '\n'
 
         sig = pychrm.FeatureSet.Signatures()
-        (sig.names, sig.values) = FeatureHandler.loadFeatures(tcIn, imId)
+        (sig.names, sig.values) = ftb.loadFeatures(imId)
         #sig.source_file = image.getName()
         sig.source_file = str(imId)
         fts.AddSignature(sig, classId)
@@ -172,51 +191,48 @@ def predict(client, scriptParams):
 
     contextName = scriptParams['Context_Name']
 
-    tableNameIn = '/Pychrm/' + contextName + FeatureHandler.SMALLFEATURES_TABLE
+    tableNameIn = '/Pychrm/' + contextName + PycharmStorage.SMALLFEATURES_TABLE
     tableNameF = '/Pychrm/' + contextName + \
-        FeatureHandler.CLASS_FEATURES_TABLE
+        PycharmStorage.CLASS_FEATURES_TABLE
     tableNameW = '/Pychrm/' + contextName + \
-        FeatureHandler.CLASS_WEIGHTS_TABLE
+        PycharmStorage.CLASS_WEIGHTS_TABLE
     tableNameL = '/Pychrm/' + contextName + \
-        FeatureHandler.CLASS_LABELS_TABLE
+        PycharmStorage.CLASS_LABELS_TABLE
     message += 'tableNameIn:' + tableNameIn + '\n'
     message += 'tableNameF:' + tableNameF + '\n'
     message += 'tableNameW:' + tableNameW + '\n'
     message += 'tableNameL:' + tableNameL + '\n'
 
-    tcIn = FeatureHandler.connFeatureTable(client, tableNameIn)
-    tcF = FeatureHandler.connClassifierTable(client, tableNameF)
-    tcW = FeatureHandler.connClassifierTable(client, tableNameW)
-    tcL = FeatureHandler.connClassifierTable(client, tableNameL)
+    ftb = PycharmStorage.FeatureTable(client, tableNameIn)
+    ctb = PycharmStorage.ClassifierTables(
+        client, tableNameF, tableNameW, tableNameL)
 
     try:
         message += 'Loading classifier\n'
-        trainProject = tcIn.conn.getObject('Project', projectId)
-        trainFts, weights = loadClassifier(tcF, tcW, tcL, trainProject)
-        classifierName = FeatureHandler.CLASSIFIER_PYCHRM_NAMESPACE
-        tagSet = FeatureHandler.getClassifierTagSet(
-            tcF, classifierName, trainProject.getName(), trainProject)
+        trainProject = ftb.conn.getObject('Project', projectId)
+        trainFts, weights = loadClassifier(ctb, trainProject)
+        classifierName = PycharmStorage.CLASSIFIER_PYCHRM_NAMESPACE
+        tagSet = PycharmStorage.getClassifierTagSet(
+            classifierName, trainProject.getName(), trainProject)
 
         # Predict
         message += 'Predicting\n'
-        predDatasets = FeatureHandler.datasetGenerator(
-            tcIn.conn, dataType, predictIds)
+        predDatasets = PycharmStorage.datasetGenerator(
+            ftb.conn, dataType, predictIds)
 
         for ds in predDatasets:
             message += 'Predicting dataset id:%d\n' % ds.getId()
-            pred, msg = predictDataset(tcIn, trainFts, ds, weights)
+            pred, msg = predictDataset(ftb, trainFts, ds, weights)
             message += msg
-            message += addPredictionsToImages(tcIn, pred, ds.getId(),
+            message += addPredictionsToImages(ftb.conn, pred, ds.getId(),
                                               commentImages, tagSet)
 
     except:
         print message
         raise
     finally:
-        tcIn.closeTable()
-        tcF.closeTable()
-        tcW.closeTable()
-        tcL.closeTable()
+        ftb.close()
+        ctb.close()
 
     return message
 
