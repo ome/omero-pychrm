@@ -54,6 +54,13 @@ CLASS_LABELS_TABLE = '/ClassLabels.h5'
 # Maximum number of rows to read/write in one go
 CHUNK_SIZE = 100
 
+class PycharmStorageError(Exception):
+    """
+    Errors occuring in the PycharmStorage module
+    """
+    pass
+
+
 def parseFeatureName(name):
     """
     Convert a single value feature name in the form
@@ -362,7 +369,7 @@ def addFileAnnotationTo(tc, obj):
         annLink = omero.model.ProjectAnnotationLinkI()
         annLink.link(omero.model.ProjectI(obj.getId(), False), fa)
     else:
-        raise Exception('Unexpected object type: %s' % oclass)
+        raise PycharmStorageError('Unexpected object type: %s' % oclass)
 
     annLink = tc.conn.getUpdateService().saveAndReturnObject(annLink)
     return 'Attached file id:%d to %s id:%d\n' % \
@@ -403,7 +410,7 @@ def addCommentTo(conn, comment, objType, objId):
         annLink = omero.model.ImageAnnotationLinkI()
         annLink.link(omero.model.ImageI(objId, False), ca)
     else:
-        raise Exception('Unexpected object type: %s' % oclass)
+        raise PycharmStorageError('Unexpected object type: %s' % objType)
 
     annLink = conn.getUpdateService().saveAndReturnObject(annLink)
     return 'Attached comment to %s id:%d\n' % (objType, objId)
@@ -429,7 +436,7 @@ def addTagTo(conn, tag, objType, objId):
         annLink = omero.model.ImageAnnotationLinkI()
         annLink.link(omero.model.ImageI(objId, False), tag)
     else:
-        raise Exception('Unexpected object type: %s' % objType)
+        raise PycharmStorageError('Unexpected object type: %s' % objType)
 
     annLink = conn.getUpdateService().saveAndReturnObject(annLink)
     return 'Attached tag to %s id:%d\n' % (objType, objId)
