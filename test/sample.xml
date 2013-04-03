@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OME xmlns="http://www.openmicroscopy.org/Schemas/OME/2012-06"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ROI="http://www.openmicroscopy.org/Schemas/ROI/2012-06"
+    xmlns:SA="http://www.openmicroscopy.org/Schemas/SA/2012-06"
+    xmlns:SPW="http://www.openmicroscopy.org/Schemas/SPW/2012-06"
+    xmlns:Bin="http://www.openmicroscopy.org/Schemas/BinaryFile/2012-06"
+    xsi:schemaLocation="http://www.openmicroscopy.org/Schemas/OME/2012-06 http://www.openmicroscopy.org/Schemas/OME/2012-06/ome.xsd"
+    UUID="urn:uuid:e915dcb5-9c60-11e2-8568-14109fce13a3"
+    Creator="ome-xml.org:sample:gist.github.com/manics/5238573/fa2c666c41811842c0ab736eb233b9ef1016272e">
+<SA:StructuredAnnotations>
+    <SA:XMLAnnotation ID="Annotation:3" Namespace="openmicroscopy.org/omero/analysis/classifier">
+        
+        <SA:Value>
+            
+            <Classifier namespace="http://www.openmicroscopy.org/Schemas/Additions/2011-09">
+                <!--
+                 This annotation enables feature-sets, classifiers and
+                 predictions to be described and linked to the source data.
+                 
+                 In general each annotation will contain only one of FeatureSet,
+                 ClassifierInstance or ClassifierPrediction.
+                 
+                 FeatureSet: A set of features. This may provide an alternative
+                 to annotating Projects, Datasets and Images with the
+                 OMERO.table containing the features or predictions.
+                 
+                 ClassiferInstance: Stores the state of a trained classifier.
+                 This is currently modelled on WND-CHRM/PyCHRM, which requires
+                 the storage of:
+                 * Reduced feature set (required by the nearest-neighbour
+                   calculation), this includes the training class index.
+                 * Feature weights (part of the internal state of the
+                   classifier).
+                 * Mapping of class indices to labels.
+                 
+                 ClassifierPrediction: It may also be an alternative to
+                 tagging images with a prediction, since instead of tagging
+                 images individually all predictions from a particular run will
+                 be in a single file. Note that multiple runs of the same
+                 classifier will result in multiple ClassifierPredictions.
+                 
+                 ClassiferInstances contain links to the FeatureSets used to
+                 train them, and Predictions contain links to the
+                 ClassifierInstance used to make the prediction, providing full
+                 provenance information.
+                 
+                 Maybe add a timestamp="2013-03-25T15:00:00Z" attribute to make
+                 it easy to see the latest version?
+                 -->
+                
+                <FeatureSet>
+                    <!--
+                     A set of features. This contains a single(?) link to an
+                     OMERO.table containing the calculated features for a set of
+                     images.
+                     -->
+                    
+                    <Algorithm scriptId="1234"><!-- Script ID -->
+                        <!--
+                         Algorithm details
+                         -->
+                        
+                        <Parameter name="foo" value="345" />
+                        <Parameter name="bar" value="abc" />
+                    </Algorithm>
+                    
+                    <FeatureTable originalFileId="654" /><!-- Table ID -->
+                    <!-- The OMERO.table containing the features. Should
+                     multiple tables be allowed? -->
+                    
+                    <!-- Image IDs corresponding to the features in the table -->
+                    <Image id="52" z="0" c="0,1,2" t="0" />
+                    <Image id="53" z="0" c="0,1,2" t="0" />
+                    <Image id="54" z="0" c="0,1,2" t="0" />
+                    <!-- Should this be Pixels id? What if we calculate from a
+                     maximum intensity projection instead of a single plane? -->
+                    
+                    <!--
+                     NOTE: How should features for different channels be stored?
+                     At present the channel name is prepended to each feature
+                     name in the table, e.g. "[channel_name] feature_name".
+                     -->
+                </FeatureSet>
+                
+                <ClassifierInstance>
+                    <!--
+                     Stores the state of a trained classifier.
+                     -->
+                    
+                    <Algorithm scriptId="534"><!-- Script ID -->
+                        <Parameter name="threshold" value="0.234" />
+                    </Algorithm>
+                    
+                    <!--
+                     Input feature-sets calculated from the training
+                     -->
+                    <TrainingFeatures annotationId="4235" /><!-- XMLAnnotation ID of FeatureSet -->
+                    <TrainingFeatures annotationId="6543" />
+                    
+                    <!--
+                     Table ID for selected training features along with class label
+                     -->
+                    <SelectedFeaturesTable originalFileId="654" />
+                    
+                    <!--
+                     Table ID for table containing the weights of the selected
+                     features
+                     -->
+                    <FeatureWeightsTable originalFileId="356" />
+                    
+                    <!--
+                     Mapping of class indicies to class labels
+                     -->
+		    <ClassLabel index="0">cat</ClassLabel>
+                    <ClassLabel index="1">dog</ClassLabel>
+                    
+                    <!--
+                     Other classifiers will probably want to store other
+                     parameters or state information
+                     -->
+                </ClassifierInstance>
+                
+                <ClassifierPrediction>
+                    <!--
+                     The results of using a classifier to make some predictions
+                     -->
+                    
+                    <Algorithm scriptId="599"><!-- Script ID -->
+                        <Parameter name="g" value="9.81" />
+                    </Algorithm>
+                    
+                    <Prediction imageId="52" z="0" c="0" t="0">
+                        <!--
+                         Prediction and associated information for a single
+                         image
+                         -->
+                        <Label>cat</Label>
+                        <!--
+                         Other output parameters might include: probability,
+                         confidence, warnings, image IDs of nearest neighbours,
+                         ranking within a set, probabilities for every class,
+                         etc.
+                         -->
+                    </Prediction>
+                    <Prediction imageId="53" z="0" c="0" t="0">
+                        <Label>dog</Label>
+                    </Prediction>
+                </ClassifierPrediction>
+                
+            </Classifier>
+            
+        </SA:Value>
+        
+    </SA:XMLAnnotation>
+    
+</SA:StructuredAnnotations>
+</OME>
