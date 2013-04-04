@@ -105,6 +105,7 @@ class Reader(object):
     def getFeatureSet(self, xml):
         """
         Look for FeatureSet elements
+        @param xml The parent XML element in which to search
         """
         xs = xml.findall('.//' + self.preNs('FeatureSet'))
         fs = [self.parseFeatureSet(x) for x in xs]
@@ -113,6 +114,7 @@ class Reader(object):
     def getClassifierInstance(self, xml):
         """
         Look for ClassifierInstance elements
+        @param xml The parent XML element in which to search
         """
         xs = xml.findall('.//' + self.preNs('ClassifierInstance'))
         ci = [self.parseClassifierInstance(x) for x in xs]
@@ -121,6 +123,7 @@ class Reader(object):
     def getClassifierPrediction(self, xml):
         """
         Look for ClassifierPrediction elements
+        @param xml The parent XML element in which to search
         """
         xs = xml.findall('.//' + self.preNs('ClassifierPrediction'))
         cp = [self.parseClassifierPrediction(x) for x in xs]
@@ -128,14 +131,19 @@ class Reader(object):
 
     ######################################################################
 
-    def attribNotNone(self, xml, name):
+    def attribNotNone(self, xml, name, type=None):
         """
         Get an attribute from an element, raise an exception if not present
+        @param xml The element
+        @param name The name of the attribute
+        @param type Optionally cast the value to this type
         """
         a = xml.get(name)
         if a is None:
             raise ClassifierXmlInvalid('Attribute %s not found in <%s>' % (
                     a, xml.tag))
+        if type:
+            a = type(a)
         return a
 
     def parseParameter(self, xml):
@@ -147,7 +155,7 @@ class Reader(object):
         return (name, value)
 
     def parseAlgorithm(self, xml):
-        id = self.attribNotNone(xml, 'scriptId')
+        id = self.attribNotNone(xml, 'scriptId', long)
         params = {}
         for x in xml:
             if x.tag != self.preNs('Parameter'):
@@ -162,19 +170,19 @@ class Reader(object):
         return Algorithm(id, params)
 
     def parseTable(self, xml):
-        originalFileId = self.attribNotNone(xml, 'originalFileId')
+        originalFileId = self.attribNotNone(xml, 'originalFileId', long)
         if len(xml) != 0:
             raise ClassifierXmlInvalid('Unexpected children in <%s>' % xml.tag)
 
         return originalFileId
 
     def parseImage(self, xml):
-        id = self.attribNotNone(xml, 'id')
-        z = xml.get('z')
+        id = self.attribNotNone(xml, 'id', long)
+        z = long(xml.get('z'))
         c = xml.get('c')
         if c is not None:
-            c = map(int, c.split(','))
-        t = xml.get('t')
+            c = map(long, c.split(','))
+        t = long(xml.get('t'))
 
         if len(xml) != 0:
             raise ClassifierXmlInvalid('Unexpected children in <%s>' % xml.tag)
@@ -182,14 +190,14 @@ class Reader(object):
         return Image(id, z, c, t)
 
     def parseAnnotation(self, xml):
-        annotationId = self.attribNotNone(xml, 'annotationId')
+        annotationId = self.attribNotNone(xml, 'annotationId', long)
         if len(xml) != 0:
             raise ClassifierXmlInvalid('Unexpected children in <%s>' % xml.tag)
 
         return annotationId
 
     def parseClassLabel(self, xml):
-        index = self.attribNotNone(xml, 'index')
+        index = self.attribNotNone(xml, 'index', long)
         label = self.parseLabel(xml)
         return (index, label)
 
@@ -205,12 +213,12 @@ class Reader(object):
     def parsePrediction(self, xml):
         label = None
 
-        id = self.attribNotNone(xml, 'imageId')
-        z = xml.get('z')
+        id = self.attribNotNone(xml, 'imageId', long)
+        z = long(xml.get('z'))
         c = xml.get('c')
         if c is not None:
-            c = map(int, c.split(','))
-        t = xml.get('t')
+            c = map(long, c.split(','))
+        t = long(xml.get('t'))
 
         for x in xml:
             if x.tag == self.preNs('Label'):
@@ -271,7 +279,7 @@ class Reader(object):
                 algorithm = self.parseAlgorithm(x)
 
             elif x.tag == self.preNs('TrainingFeatures'):
-                table = self.parseAnnotation(x)
+                features.append(self.parseAnnotation(x))
 
             elif x.tag == self.preNs('SelectedFeaturesTable'):
                 if featuresTable is not None:
