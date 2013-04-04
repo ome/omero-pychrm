@@ -24,9 +24,9 @@
 
 import xml.dom.minidom
 try:
-    from xml.etree.ElementTree import XML, Element#, SubElement, Comment, ElementTree, tostring
+    from xml.etree.ElementTree import XML, Element, SubElement#, Comment, ElementTree, tostring
 except ImportError:
-    from elementtree.ElementTree import XML, Element#, SubElement, Comment, ElementTree, tostring
+    from elementtree.ElementTree import XML, Element, SubElement#, Comment, ElementTree, tostring
 
 
 class InvalidXmlError(Exception):
@@ -328,4 +328,91 @@ class Reader(object):
                     'Unexpected element <%s> found in <%s>' % (x.tag, xml.tag))
 
         return ClassifierPrediction(algorithm, predictions)
+
+
+
+class Writer(object):
+
+    def __init__(self):
+        #self.ns = self.getNs()
+        pass
+
+    def getNs(self):
+        tag = self.xml.tag
+        a = tag.find('{')
+        b = tag.find('}')
+        if a == -1:
+            assert(b == -1)
+            return None
+
+        assert(a == 0 and b > 0)
+        return tag[(a + 1):b]
+
+    def preNs(self, tag):
+        return '{%s}%s' % (self.ns, tag)
+
+    def outputFeatureSet(self, featset):
+        fs = Element('FeatureSet')
+        a = self.outputAlgorithm(featset.algorithm)
+        fs.append(a)
+        SubElement(fs, 'FeatureTable',
+                   { 'originalFileId': str(featset.tableId) })
+
+        for im in featset.images:
+            SubElement(fs, 'Image',
+                       { 'id': str(im.id), 'z': str(im.z),
+                         'c': ','.join(['%d' % n for n in im.c]),
+                         't': str(im.t) })
+
+        return fs
+
+    def outputClassifierInstance(self, classinst):
+        ci = Element('ClassifierInstance')
+        a = self.outputAlgorithm(classinst.algorithm)
+        ci.append(a)
+
+        for tid in classinst.trainingIds:
+            SubElement(ci, 'TrainingFeatures', { 'annotationId': str(tid) })
+
+        SubElement(ci, 'SelectedFeaturesTable',
+                   { 'originalFileId': str(classinst.selectedId) })
+
+        SubElement(ci, 'FeatureWeightsTable',
+                   { 'originalFileId': str(classinst.weightsId) })
+
+        for (index, label) in classinst.labels.iteritems():
+            cl = SubElement(ci, 'ClassLabel', { 'index': str(index) })
+            cl.text = str(label)
+
+        return ci
+
+    def outputClassifierPrediction(self, classpred):
+        cp = Element('ClassifierPrediction')
+        a = self.outputAlgorithm(classpred.algorithm)
+        cp.append(a)
+
+        for pred in classpred.predictions:
+            p = self.outputPrediction(pred)
+            cp.append(p)
+
+        return cp
+
+    ######################################################################
+
+    def outputAlgorithm(self, algorithm):
+        a = Element('Algorithm', { 'scriptId': str(algorithm.id) })
+        for (name, value) in algorithm.parameters.iteritems():
+            p = SubElement(a, 'Parameter',
+                           { 'name': str(name), 'value': str(value) })
+        return a
+
+    def outputPrediction(self, prediction):
+        p = Element('Prediction',
+                    { 'imageId': str(prediction.id), 'z': str(prediction.z),
+                      'c': ','.join(['%d'%n for n in prediction.c]),
+                      't': str(prediction.t) })
+        l = SubElement(p, 'Label')
+        l.text = str(prediction.label)
+        return p
+
 
