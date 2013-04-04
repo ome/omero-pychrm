@@ -29,7 +29,7 @@ except ImportError:
     from elementtree.ElementTree import XML, Element#, SubElement, Comment, ElementTree, tostring
 
 
-class ClassifierXmlInvalid(Exception):
+class InvalidXmlError(Exception):
     pass
 
 class Algorithm(object):
@@ -140,7 +140,7 @@ class Reader(object):
         """
         a = xml.get(name)
         if a is None:
-            raise ClassifierXmlInvalid('Attribute %s not found in <%s>' % (
+            raise InvalidXmlError('Attribute %s not found in <%s>' % (
                     a, xml.tag))
         if type:
             a = type(a)
@@ -148,7 +148,7 @@ class Reader(object):
 
     def parseParameter(self, xml):
         if len(xml) != 0:
-            raise ClassifierXmlInvalid('Unexpected children in <%s>' % xml.tag)
+            raise InvalidXmlError('Unexpected children in <%s>' % xml.tag)
 
         name = self.attribNotNone(xml, 'name')
         value = self.attribNotNone(xml, 'value')
@@ -159,11 +159,11 @@ class Reader(object):
         params = {}
         for x in xml:
             if x.tag != self.preNs('Parameter'):
-                raise ClassifierXmlInvalid(
+                raise InvalidXmlError(
                     'Expected <Parameter>, found <%s>' % x.tag)
             name, value = self.parseParameter(x)
             if name in params:
-                raise ClassifierXmlInvalid(
+                raise InvalidXmlError(
                     'Duplicate parameter name: %s' % name)
             params[name] = value
 
@@ -172,7 +172,7 @@ class Reader(object):
     def parseTable(self, xml):
         originalFileId = self.attribNotNone(xml, 'originalFileId', long)
         if len(xml) != 0:
-            raise ClassifierXmlInvalid('Unexpected children in <%s>' % xml.tag)
+            raise InvalidXmlError('Unexpected children in <%s>' % xml.tag)
 
         return originalFileId
 
@@ -185,14 +185,14 @@ class Reader(object):
         t = long(xml.get('t'))
 
         if len(xml) != 0:
-            raise ClassifierXmlInvalid('Unexpected children in <%s>' % xml.tag)
+            raise InvalidXmlError('Unexpected children in <%s>' % xml.tag)
 
         return Image(id, z, c, t)
 
     def parseAnnotation(self, xml):
         annotationId = self.attribNotNone(xml, 'annotationId', long)
         if len(xml) != 0:
-            raise ClassifierXmlInvalid('Unexpected children in <%s>' % xml.tag)
+            raise InvalidXmlError('Unexpected children in <%s>' % xml.tag)
 
         return annotationId
 
@@ -203,10 +203,10 @@ class Reader(object):
 
     def parseLabel(self, xml):
         if not xml.text:
-            raise ClassifierXmlInvalid(
+            raise InvalidXmlError(
                 'Expected text content in <%s>' % xml.tag)
         if len(xml) != 0:
-            raise ClassifierXmlInvalid('Unexpected children in <%s>' % xml.tag)
+            raise InvalidXmlError('Unexpected children in <%s>' % xml.tag)
 
         return xml.text
 
@@ -223,13 +223,13 @@ class Reader(object):
         for x in xml:
             if x.tag == self.preNs('Label'):
                 if label:
-                    raise ClassifierXmlInvalid(
+                    raise InvalidXmlError(
                         'Multiple <Label> found in <%s>' % xml.tag)
                 label = self.parseLabel(x)
 
             else:
                 # @todo Ignore additional elements instead of throwing?
-                raise ClassifierXmlInvalid(
+                raise InvalidXmlError(
                     'Unexpected element <%s> found in <%s>' % (x.tag, xml.tag))
 
         return Prediction(id, z, c, t, label)
@@ -244,13 +244,13 @@ class Reader(object):
         for x in xml:
             if x.tag == self.preNs('Algorithm'):
                 if algorithm:
-                    raise ClassifierXmlInvalid(
+                    raise InvalidXmlError(
                         'Multiple <Algorithm> found in <%s>' % xml.tag)
                 algorithm = self.parseAlgorithm(x)
 
             elif x.tag == self.preNs('FeatureTable'):
                 if tableId is not None:
-                    raise ClassifierXmlInvalid(
+                    raise InvalidXmlError(
                         'Multiple <FeatureTable> found in <%s>' %
                         xml.tag)
                 tableId = self.parseTable(x)
@@ -259,7 +259,7 @@ class Reader(object):
                 images.append(self.parseImage(x))
 
             else:
-                raise ClassifierXmlInvalid(
+                raise InvalidXmlError(
                     'Unexpected element <%s> found in <%s>' % (x.tag, xml.tag))
 
         return FeatureSet(algorithm, tableId, images)
@@ -274,7 +274,7 @@ class Reader(object):
         for x in xml:
             if x.tag == self.preNs('Algorithm'):
                 if algorithm:
-                    raise ClassifierXmlInvalid(
+                    raise InvalidXmlError(
                         'Multiple <Algorithm> found in <%s>' % xml.tag)
                 algorithm = self.parseAlgorithm(x)
 
@@ -283,14 +283,14 @@ class Reader(object):
 
             elif x.tag == self.preNs('SelectedFeaturesTable'):
                 if featuresTable is not None:
-                    raise ClassifierXmlInvalid(
+                    raise InvalidXmlError(
                         'Multiple <SelectedFeaturesTable> found in <%s>' %
                         xml.tag)
                 featuresTable = self.parseTable(x)
 
             elif x.tag == self.preNs('FeatureWeightsTable'):
                 if weightsTable is not None:
-                    raise ClassifierXmlInvalid(
+                    raise InvalidXmlError(
                         'Multiple <FeatureWeightsTable> found in <%s>' %
                         xml.tag)
                 weightsTable = self.parseTable(x)
@@ -298,11 +298,11 @@ class Reader(object):
             elif x.tag == self.preNs('ClassLabel'):
                 index, name = self.parseClassLabel(x)
                 if index in labels:
-                    raise ClassifierXmlInvalid('Duplicate index: %s' % index)
+                    raise InvalidXmlError('Duplicate index: %s' % index)
                 labels[index] = name
 
             else:
-                raise ClassifierXmlInvalid(
+                raise InvalidXmlError(
                     'Unexpected element <%s> found in <%s>' % (x.tag, xml.tag))
 
         return ClassifierInstance(
@@ -316,7 +316,7 @@ class Reader(object):
         for x in xml:
             if x.tag == self.preNs('Algorithm'):
                 if algorithm:
-                    raise ClassifierXmlInvalid(
+                    raise InvalidXmlError(
                         'Multiple <Algorithm> found in <%s>' % xml.tag)
                 algorithm = self.parseAlgorithm(x)
 
@@ -324,7 +324,7 @@ class Reader(object):
                 predictions.append(self.parsePrediction(x))
 
             else:
-                raise ClassifierXmlInvalid(
+                raise InvalidXmlError(
                     'Unexpected element <%s> found in <%s>' % (x.tag, xml.tag))
 
         return ClassifierPrediction(algorithm, predictions)
