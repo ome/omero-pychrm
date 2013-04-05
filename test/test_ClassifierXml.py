@@ -24,7 +24,7 @@
 import unittest
 import collections
 import itertools
-
+import StringIO
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'utils'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
@@ -116,6 +116,8 @@ class TestReader(unittest.TestCase):
 class TestWriter(unittest.TestCase):
 
     def setUp(self):
+        self.writer = Writer()
+
         self.fsxml = (
             '<FeatureSet>'
             '<Algorithm scriptId="12">'
@@ -155,36 +157,80 @@ class TestWriter(unittest.TestCase):
             '</ClassifierPrediction>'
             )
 
-    def getWriter(self):
-        return Writer()
+        self.startxml = (
+            '<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n'
+            '<OME xmlns="http://www.openmicroscopy.org/Schemas/OME/2012-06" '
+            'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+            'xmlns:ROI="http://www.openmicroscopy.org/Schemas/ROI/2012-06" '
+            'xmlns:SA="http://www.openmicroscopy.org/Schemas/SA/2012-06" '
+            'xmlns:SPW="http://www.openmicroscopy.org/Schemas/SPW/2012-06" '
+            'xmlns:Bin="http://www.openmicroscopy.org/Schemas/BinaryFile/2012-06" '
+            'xsi:schemaLocation="http://www.openmicroscopy.org/Schemas/OME/2012-06 http://www.openmicroscopy.org/Schemas/OME/2012-06/ome.xsd" '
+            'UUID="urn:uuid:e915dcb5-9c60-11e2-8568-14109fce13a3" '
+            'Creator="ome-xml.org:sample:gist.github.com/manics/5238573/fa2c666c41811842c0ab736eb233b9ef1016272e">'
+            '<SA:StructuredAnnotations>'
+            '<SA:XMLAnnotation ID="Annotation:3" Namespace="openmicroscopy.org/omero/analysis/classifier">'
+            '<SA:Value>'
+            '<Classifier namespace="http://www.openmicroscopy.org/Schemas/Additions/2011-09">'
+            )
 
-    def test_xmlFeatureSet(self):
-        fs = FeatureSet(
+        self.endxml = (
+            '</Classifier>'
+            '</SA:Value>'
+            '</SA:XMLAnnotation>'
+            )
+
+    def createFeatureSet(self):
+        return FeatureSet(
             Algorithm(12, { 'baz': 3131}),
             264345,
             [Image(666, 1, [2, 4], 3), Image(7, 33, [0, 1], 43)])
-        fsxml = self.getWriter().toXmlStr(fs)
 
-        self.assertEqual(fsxml, self.fsxml)
-
-    def test_xmlClassifierInstance(self):
-        ci = ClassifierInstance(
+    def createClassifierInstance(self):
+        return ClassifierInstance(
             Algorithm(12, { 'baz': 3131}),
             [4543, 1423],
             7657777,
             2352553,
             {0: 'hamster', 1: 'mouse'})
-        cixml = self.getWriter().toXmlStr(ci)
 
-        self.assertEqual(cixml, self.cixml)
-
-    def test_xmlClassifierPrediction(self):
-        cp = ClassifierPrediction(
+    def createClassifierPrediction(self):
+        return ClassifierPrediction(
             Algorithm(12, { 'baz': 3131}),
             [Prediction(645354, 123, [5], 456, 'mouse'),
              Prediction(9219, 14, [2], 111, 'hamster')])
-        cpxml = self.getWriter().toXmlStr(cp)
 
+
+    def test_xmlFileOutput(self):
+        root = self.writer.omeXml(self.createFeatureSet(),
+                                  self.createClassifierInstance(),
+                                  self.createClassifierPrediction())
+        buffer = StringIO.StringIO()
+        self.writer.writeOmeXml(buffer, root)
+        expected = (self.startxml + self.fsxml + self.cixml + self.cpxml +
+                    self.endxml)
+        for i in xrange(len(expected)):
+            b = buffer.getvalue()[i:i+10]
+            e = expected[i:i+10]
+            if b[0] != e[0]:
+                print 'Difference at [%d] %s %s' % (i, b, e)
+                break
+
+        self.assertEqual(buffer.getvalue(), expected)
+
+    def test_xmlFeatureSet(self):
+        fsxml = self.writer.toString(self.writer.xmlFeatureSet(
+                self.createFeatureSet()))
+        self.assertEqual(fsxml, self.fsxml)
+
+    def test_xmlClassifierInstance(self):
+        cixml = self.writer.toString(self.writer.xmlClassifierInstance(
+                self.createClassifierInstance()))
+        self.assertEqual(cixml, self.cixml)
+
+    def test_xmlClassifierPrediction(self):
+        cpxml = self.writer.toString(self.writer.xmlClassifierPrediction(
+                self.createClassifierPrediction()))
         self.assertEqual(cpxml, self.cpxml)
 
 
