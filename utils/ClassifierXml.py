@@ -29,6 +29,10 @@ except ImportError:
     from elementtree.ElementTree import XML, Element, SubElement, Comment, ElementTree, tostring
 
 
+CLASSIFIER_NAMESPACE = 'openmicroscopy.org/omero/analysis/classifier'
+ADDITIONS_NAMESPACE = 'http://www.openmicroscopy.org/Schemas/Additions/2011-09'
+STRUCTUREDANNOTATIONS_NAMESPACE = "http://www.openmicroscopy.org/Schemas/SA/2012-06"
+
 class InvalidXmlError(Exception):
     pass
 
@@ -73,8 +77,6 @@ class ClassifierPrediction(object):
     def __init__(self, algorithm, predictions):
         self.algorithm = algorithm
         self.predictions = predictions
-
-
 
 
 
@@ -336,29 +338,76 @@ class Writer(object):
 
     def __init__(self):
         self.ns = 'http://www.openmicroscopy.org/Schemas/OME/2012-06'
+        xml.etree.ElementTree.register_namespace(
+            'SA', STRUCTUREDANNOTATIONS_NAMESPACE)
+
+    def getNs(self, tag):
+        a = tag.find('{')
+        b = tag.find('}')
+        if a == -1:
+            assert(b == -1)
+            return None
+
+        assert(a == 0 and b > 0)
+        return tag[(a + 1):b]
 
     def preNs(self, tag):
         return '{%s}%s' % (self.ns, tag)
 
-    def toXml(self, object):
-        if isinstance(object, FeatureSet):
-            return self.xmlFeatureSet(object)
-        if isinstance(object, ClassifierInstance):
-            return self.xmlClassifierInstance(object)
-        if isinstance(object, ClassifierPrediction):
-            return self.xmlClassifierPrediction(object)
+    def preSA(self, tag):
+        return '{%s}%s' % (STRUCTUREDANNOTATIONS_NAMESPACE, tag)
 
-        if isinstance(object, Algorithm):
-            return self.xmlAlgorithm(object)
-        if isinstance(object, Image):
-            return self.xmlImagePrediction(object)
-        if isinstance(object, Prediction):
-            return self.xmlPrediction(object)
+    def prefixWithDefaultNs(self, xml):
+        """
+        The XML library seems to require prefixes on everything:
+        http://programmaticallyspeaking.com/serializing-non-qualified-attributes-with-elementtree.html
 
-        raise XmlError('Unexpected object class: %s', type(object))
+        This is a questionable hack which attempts to add a default namespace to
+        attributes and elements which don't have a namespace, so that when the
+        XML is written out with a default namespace specified it just works.
 
-    def toXmlStr(self, object):
-        return tostring(self.toXml(object))
+        Probably best to avoid calling this unless you have to.
+        """
+        for elem in xml.iter():
+            # inherit the uri from the element
+            uri = self.getNs(elem.tag)
+            if not uri:
+                elem.tag = self.preNs(elem.tag)
+                uri = self.ns
+            for k, v in elem.attrib.items():
+                if k[:1] != "{":
+                    # replace the old attribute with a namespace-prefixed one
+                    del elem.attrib[k]
+                    k = "{%s}%s" % (uri, k)
+                    elem.attrib[k] = v
+
+    def writeOmeXml(self, file, root):
+        tree = ElementTree(root)
+        self.prefixWithDefaultNs(tree)
+        tree.write(file, 'UTF-8', True, self.ns)
+
+    def omeXml(self, featureSet=None, classifierInstance=None,
+               classifierPrediction=None, id=None):
+        root = Element('OME')
+
+        attribs = { 'Namespace': CLASSIFIER_NAMESPACE }
+        if id is not None:
+            attribs['ID'] = str(id)
+        sa = SubElement(root, self.preSA('StructuredAnnotations'), attribs)
+        sv = SubElement(sa, self.preSA('Value'))
+        c = SubElement(sv, 'Classifier', { 'Namespace': ADDITIONS_NAMESPACE } )
+
+        if featureSet:
+            c.append(self.xmlFeatureSet(featureSet))
+        if classifierInstance:
+            c.append(self.xmlClassifierInstance(classifierInstance))
+        if classifierPrediction:
+            c.append(self.xmlClassifierPrediction(classifierPrediction))
+
+        return root
+
+    def toString(self, xml):
+        return tostring(xml)
 
     def xmlFeatureSet(self, featset):
         fs = Element('FeatureSet')
