@@ -341,6 +341,12 @@ class Writer(object):
         xml.etree.ElementTree.register_namespace(
             'SA', STRUCTUREDANNOTATIONS_NAMESPACE)
 
+        """
+        Only change this for testing
+        """
+        self.useDefaultNsForEverything = False
+
+
     def getNs(self, tag):
         a = tag.find('{')
         b = tag.find('}')
@@ -369,10 +375,16 @@ class Writer(object):
         Probably best to avoid calling this unless you have to.
         """
         for elem in xml.iter():
-            # inherit the uri from the element
             uri = self.getNs(elem.tag)
             if not uri:
                 elem.tag = self.preNs(elem.tag)
+                uri = self.ns
+
+            # In theory we should inherit the uri from the element
+            # However to force the XML to be written without a namespace we just
+            # override it with the default
+            if self.useDefaultNsForEverything and uri != self.ns:
+                print 'WARNING: Overriding namespace with default'
                 uri = self.ns
             for k, v in elem.attrib.items():
                 if k[0] != "{":

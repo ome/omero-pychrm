@@ -117,6 +117,7 @@ class TestWriter(unittest.TestCase):
 
     def setUp(self):
         self.writer = Writer()
+        self.writer.useDefaultNsForEverything = True
 
         self.fsxml = (
             '<FeatureSet>'
