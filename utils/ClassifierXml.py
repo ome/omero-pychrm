@@ -375,7 +375,7 @@ class Writer(object):
                 elem.tag = self.preNs(elem.tag)
                 uri = self.ns
             for k, v in elem.attrib.items():
-                if k[:1] != "{":
+                if k[0] != "{":
                     # replace the old attribute with a namespace-prefixed one
                     del elem.attrib[k]
                     k = "{%s}%s" % (uri, k)
@@ -389,13 +389,15 @@ class Writer(object):
     def omeXml(self, featureSet=None, classifierInstance=None,
                classifierPrediction=None, id=None):
         root = Element('OME')
+        ssa = SubElement(root, self.preSA('StructuredAnnotations'))
 
         attribs = { 'Namespace': CLASSIFIER_NAMESPACE }
         if id is not None:
             attribs['ID'] = str(id)
-        sa = SubElement(root, self.preSA('StructuredAnnotations'), attribs)
-        sv = SubElement(sa, self.preSA('Value'))
-        c = SubElement(sv, 'Classifier', { 'Namespace': ADDITIONS_NAMESPACE } )
+        sxa = SubElement(ssa, self.preSA('XMLAnnotation'), attribs)
+
+        sv = SubElement(sxa, self.preSA('Value'))
+        c = SubElement(sv, 'Classifier', { 'namespace': ADDITIONS_NAMESPACE } )
 
         if featureSet:
             c.append(self.xmlFeatureSet(featureSet))
