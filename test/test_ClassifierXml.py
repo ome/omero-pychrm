@@ -115,23 +115,8 @@ class TestReader(unittest.TestCase):
 
 class TestWriter(unittest.TestCase):
 
-    def getWriter(self):
-        return Writer()
-
-    def x_getNs(self):
-        xml = self.getXml()
-        self.assertEqual(
-            xml.getNs(), 'http://www.openmicroscopy.org/Schemas/OME/2012-06')
-
-    def test_xmlFeatureSet(self):
-        fs = FeatureSet(
-            Algorithm(12, { 'baz': 3131}),
-            264345,
-            [Image(666, 1, [2, 4], 3), Image(7, 33, [0, 1], 43)])
-        fsxml = self.getWriter().toXmlStr(fs)
-
-        self.assertEqual(
-            fsxml,
+    def setUp(self):
+        self.fsxml = (
             '<FeatureSet>'
             '<Algorithm scriptId="12">'
             '<Parameter name="baz" value="3131" />'
@@ -139,19 +124,10 @@ class TestWriter(unittest.TestCase):
             '<FeatureTable originalFileId="264345" />'
             '<Image c="2,4" id="666" t="3" z="1" />'
             '<Image c="0,1" id="7" t="43" z="33" />'
-            '</FeatureSet>')
+            '</FeatureSet>'
+            )
 
-    def test_xmlClassifierInstance(self):
-        ci = ClassifierInstance(
-            Algorithm(12, { 'baz': 3131}),
-            [4543, 1423],
-            7657777,
-            2352553,
-            {0: 'hamster', 1: 'mouse'})
-        cixml = self.getWriter().toXmlStr(ci)
-
-        self.assertEqual(
-            cixml,
+        self.cixml = (
             '<ClassifierInstance>'
             '<Algorithm scriptId="12">'
             '<Parameter name="baz" value="3131" />'
@@ -162,17 +138,10 @@ class TestWriter(unittest.TestCase):
             '<FeatureWeightsTable originalFileId="2352553" />'
             '<ClassLabel index="0">hamster</ClassLabel>'
             '<ClassLabel index="1">mouse</ClassLabel>'
-            '</ClassifierInstance>')
+            '</ClassifierInstance>'
+            )
 
-    def test_xmlClassifierPrediction(self):
-        cp = ClassifierPrediction(
-            Algorithm(12, { 'baz': 3131}),
-            [Prediction(645354, 123, [5], 456, 'mouse'),
-             Prediction(9219, 14, [2], 111, 'hamster')])
-        cpxml = self.getWriter().toXmlStr(cp)
-
-        self.assertEqual(
-            cpxml,
+        self.cpxml = (
             '<ClassifierPrediction>'
             '<Algorithm scriptId="12">'
             '<Parameter name="baz" value="3131" />'
@@ -183,7 +152,40 @@ class TestWriter(unittest.TestCase):
             '<Prediction c="2" imageId="9219" t="111" z="14">'
             '<Label>hamster</Label>'
             '</Prediction>'
-            '</ClassifierPrediction>')
+            '</ClassifierPrediction>'
+            )
+
+    def getWriter(self):
+        return Writer()
+
+    def test_xmlFeatureSet(self):
+        fs = FeatureSet(
+            Algorithm(12, { 'baz': 3131}),
+            264345,
+            [Image(666, 1, [2, 4], 3), Image(7, 33, [0, 1], 43)])
+        fsxml = self.getWriter().toXmlStr(fs)
+
+        self.assertEqual(fsxml, self.fsxml)
+
+    def test_xmlClassifierInstance(self):
+        ci = ClassifierInstance(
+            Algorithm(12, { 'baz': 3131}),
+            [4543, 1423],
+            7657777,
+            2352553,
+            {0: 'hamster', 1: 'mouse'})
+        cixml = self.getWriter().toXmlStr(ci)
+
+        self.assertEqual(cixml, self.cixml)
+
+    def test_xmlClassifierPrediction(self):
+        cp = ClassifierPrediction(
+            Algorithm(12, { 'baz': 3131}),
+            [Prediction(645354, 123, [5], 456, 'mouse'),
+             Prediction(9219, 14, [2], 111, 'hamster')])
+        cpxml = self.getWriter().toXmlStr(cp)
+
+        self.assertEqual(cpxml, self.cpxml)
 
 
 
