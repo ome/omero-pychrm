@@ -24,12 +24,15 @@
 
 import xml.dom.minidom
 try:
-    from xml.etree.ElementTree import XML, Element, SubElement#, Comment, ElementTree, tostring
+    from xml.etree.ElementTree import XML, Element, SubElement, Comment, ElementTree, tostring
 except ImportError:
-    from elementtree.ElementTree import XML, Element, SubElement#, Comment, ElementTree, tostring
+    from elementtree.ElementTree import XML, Element, SubElement, Comment, ElementTree, tostring
 
 
 class InvalidXmlError(Exception):
+    pass
+
+class XmlError(Exception):
     pass
 
 class Algorithm(object):
@@ -129,7 +132,6 @@ class Reader(object):
         cp = [self.parseClassifierPrediction(x) for x in xs]
         return cp
 
-    ######################################################################
 
     def attribNotNone(self, xml, name, type=None):
         """
@@ -234,7 +236,6 @@ class Reader(object):
 
         return Prediction(id, z, c, t, label)
 
-    ######################################################################
 
     def parseFeatureSet(self, xml):
         algorithm = None
@@ -334,41 +335,47 @@ class Reader(object):
 class Writer(object):
 
     def __init__(self):
-        #self.ns = self.getNs()
-        pass
-
-    def getNs(self):
-        tag = self.xml.tag
-        a = tag.find('{')
-        b = tag.find('}')
-        if a == -1:
-            assert(b == -1)
-            return None
-
-        assert(a == 0 and b > 0)
-        return tag[(a + 1):b]
+        self.ns = 'http://www.openmicroscopy.org/Schemas/OME/2012-06'
 
     def preNs(self, tag):
         return '{%s}%s' % (self.ns, tag)
 
-    def outputFeatureSet(self, featset):
+    def toXml(self, object):
+        if isinstance(object, FeatureSet):
+            return self.xmlFeatureSet(object)
+        if isinstance(object, ClassifierInstance):
+            return self.xmlClassifierInstance(object)
+        if isinstance(object, ClassifierPrediction):
+            return self.xmlClassifierPrediction(object)
+
+        if isinstance(object, Algorithm):
+            return self.xmlAlgorithm(object)
+        if isinstance(object, Image):
+            return self.xmlImagePrediction(object)
+        if isinstance(object, Prediction):
+            return self.xmlPrediction(object)
+
+        raise XmlError('Unexpected object class: %s', type(object))
+
+    def toXmlStr(self, object):
+        return tostring(self.toXml(object))
+
+    def xmlFeatureSet(self, featset):
         fs = Element('FeatureSet')
-        a = self.outputAlgorithm(featset.algorithm)
+        a = self.xmlAlgorithm(featset.algorithm)
         fs.append(a)
         SubElement(fs, 'FeatureTable',
                    { 'originalFileId': str(featset.tableId) })
 
         for im in featset.images:
-            SubElement(fs, 'Image',
-                       { 'id': str(im.id), 'z': str(im.z),
-                         'c': ','.join(['%d' % n for n in im.c]),
-                         't': str(im.t) })
+            xim = self.xmlImage(im)
+            fs.append(xim)
 
         return fs
 
-    def outputClassifierInstance(self, classinst):
+    def xmlClassifierInstance(self, classinst):
         ci = Element('ClassifierInstance')
-        a = self.outputAlgorithm(classinst.algorithm)
+        a = self.xmlAlgorithm(classinst.algorithm)
         ci.append(a)
 
         for tid in classinst.trainingIds:
@@ -386,27 +393,33 @@ class Writer(object):
 
         return ci
 
-    def outputClassifierPrediction(self, classpred):
+    def xmlClassifierPrediction(self, classpred):
         cp = Element('ClassifierPrediction')
-        a = self.outputAlgorithm(classpred.algorithm)
+        a = self.xmlAlgorithm(classpred.algorithm)
         cp.append(a)
 
         for pred in classpred.predictions:
-            p = self.outputPrediction(pred)
+            p = self.xmlPrediction(pred)
             cp.append(p)
 
         return cp
 
-    ######################################################################
 
-    def outputAlgorithm(self, algorithm):
+    def xmlAlgorithm(self, algorithm):
         a = Element('Algorithm', { 'scriptId': str(algorithm.id) })
         for (name, value) in algorithm.parameters.iteritems():
             p = SubElement(a, 'Parameter',
                            { 'name': str(name), 'value': str(value) })
         return a
 
-    def outputPrediction(self, prediction):
+    def xmlImage(self, image):
+        im = Element('Image',
+                     { 'id': str(image.id), 'z': str(image.z),
+                       'c': ','.join(['%d' % n for n in image.c]),
+                       't': str(image.t) })
+        return im
+
+    def xmlPrediction(self, prediction):
         p = Element('Prediction',
                     { 'imageId': str(prediction.id), 'z': str(prediction.z),
                       'c': ','.join(['%d'%n for n in prediction.c]),
