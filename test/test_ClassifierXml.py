@@ -160,14 +160,7 @@ class TestWriter(unittest.TestCase):
         self.startxml = (
             '<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n'
             '<OME xmlns="http://www.openmicroscopy.org/Schemas/OME/2012-06" '
-            'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
-            'xmlns:ROI="http://www.openmicroscopy.org/Schemas/ROI/2012-06" '
-            'xmlns:SA="http://www.openmicroscopy.org/Schemas/SA/2012-06" '
-            'xmlns:SPW="http://www.openmicroscopy.org/Schemas/SPW/2012-06" '
-            'xmlns:Bin="http://www.openmicroscopy.org/Schemas/BinaryFile/2012-06" '
-            'xsi:schemaLocation="http://www.openmicroscopy.org/Schemas/OME/2012-06 http://www.openmicroscopy.org/Schemas/OME/2012-06/ome.xsd" '
-            'UUID="urn:uuid:e915dcb5-9c60-11e2-8568-14109fce13a3" '
-            'Creator="ome-xml.org:sample:gist.github.com/manics/5238573/fa2c666c41811842c0ab736eb233b9ef1016272e">'
+            'xmlns:SA="http://www.openmicroscopy.org/Schemas/SA/2012-06">'
             '<SA:StructuredAnnotations>'
             '<SA:XMLAnnotation ID="Annotation:3" Namespace="openmicroscopy.org/omero/analysis/classifier">'
             '<SA:Value>'
@@ -178,6 +171,8 @@ class TestWriter(unittest.TestCase):
             '</Classifier>'
             '</SA:Value>'
             '</SA:XMLAnnotation>'
+            '</SA:StructuredAnnotations>'
+            '</OME>'
             )
 
     def createFeatureSet(self):
@@ -204,7 +199,8 @@ class TestWriter(unittest.TestCase):
     def test_xmlFileOutput(self):
         root = self.writer.omeXml(self.createFeatureSet(),
                                   self.createClassifierInstance(),
-                                  self.createClassifierPrediction())
+                                  self.createClassifierPrediction(),
+                                  'Annotation:3')
         buffer = StringIO.StringIO()
         self.writer.writeOmeXml(buffer, root)
         expected = (self.startxml + self.fsxml + self.cixml + self.cpxml +
@@ -213,9 +209,10 @@ class TestWriter(unittest.TestCase):
             b = buffer.getvalue()[i:i+10]
             e = expected[i:i+10]
             if b[0] != e[0]:
-                print 'Difference at [%d] %s %s' % (i, b, e)
+                print 'Difference at [%d] *%s* *%s*' % (i, b, e)
                 break
 
+        self.assertEqual(len(buffer.getvalue()), len(expected))
         self.assertEqual(buffer.getvalue(), expected)
 
     def test_xmlFeatureSet(self):
