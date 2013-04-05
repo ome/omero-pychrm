@@ -113,6 +113,80 @@ class TestReader(unittest.TestCase):
 
 
 
+class TestWriter(unittest.TestCase):
+
+    def getWriter(self):
+        return Writer()
+
+    def x_getNs(self):
+        xml = self.getXml()
+        self.assertEqual(
+            xml.getNs(), 'http://www.openmicroscopy.org/Schemas/OME/2012-06')
+
+    def test_xmlFeatureSet(self):
+        fs = FeatureSet(
+            Algorithm(12, { 'baz': 3131}),
+            264345,
+            [Image(666, 1, [2, 4], 3), Image(7, 33, [0, 1], 43)])
+        fsxml = self.getWriter().toXmlStr(fs)
+
+        self.assertEqual(
+            fsxml,
+            '<FeatureSet>'
+            '<Algorithm scriptId="12">'
+            '<Parameter name="baz" value="3131" />'
+            '</Algorithm>'
+            '<FeatureTable originalFileId="264345" />'
+            '<Image c="2,4" id="666" t="3" z="1" />'
+            '<Image c="0,1" id="7" t="43" z="33" />'
+            '</FeatureSet>')
+
+    def test_xmlClassifierInstance(self):
+        ci = ClassifierInstance(
+            Algorithm(12, { 'baz': 3131}),
+            [4543, 1423],
+            7657777,
+            2352553,
+            {0: 'hamster', 1: 'mouse'})
+        cixml = self.getWriter().toXmlStr(ci)
+
+        self.assertEqual(
+            cixml,
+            '<ClassifierInstance>'
+            '<Algorithm scriptId="12">'
+            '<Parameter name="baz" value="3131" />'
+            '</Algorithm>'
+            '<TrainingFeatures annotationId="4543" />'
+            '<TrainingFeatures annotationId="1423" />'
+            '<SelectedFeaturesTable originalFileId="7657777" />'
+            '<FeatureWeightsTable originalFileId="2352553" />'
+            '<ClassLabel index="0">hamster</ClassLabel>'
+            '<ClassLabel index="1">mouse</ClassLabel>'
+            '</ClassifierInstance>')
+
+    def test_xmlClassifierPrediction(self):
+        cp = ClassifierPrediction(
+            Algorithm(12, { 'baz': 3131}),
+            [Prediction(645354, 123, [5], 456, 'mouse'),
+             Prediction(9219, 14, [2], 111, 'hamster')])
+        cpxml = self.getWriter().toXmlStr(cp)
+
+        self.assertEqual(
+            cpxml,
+            '<ClassifierPrediction>'
+            '<Algorithm scriptId="12">'
+            '<Parameter name="baz" value="3131" />'
+            '</Algorithm>'
+            '<Prediction c="5" imageId="645354" t="456" z="123">'
+            '<Label>mouse</Label>'
+            '</Prediction>'
+            '<Prediction c="2" imageId="9219" t="111" z="14">'
+            '<Label>hamster</Label>'
+            '</Prediction>'
+            '</ClassifierPrediction>')
+
+
+
 
 if __name__ == '__main__':
     unittest.main()
