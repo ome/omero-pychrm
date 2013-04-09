@@ -236,7 +236,7 @@ def runScript():
     """
 
     client = scripts.client(
-        'Pycharm_Build_Classifier.py',
+        'Pychrm_Build_Classifier.py',
         'Build a classifier from features calculated over two or more ' +
         'datasets, each dataset represents a different class',
 
