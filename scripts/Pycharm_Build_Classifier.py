@@ -28,7 +28,7 @@ from datetime import datetime
 from math import ceil
 from itertools import izip
 
-import PycharmStorage
+from OmeroPychrm import PychrmStorage
 import pychrm.FeatureSet
 
 
@@ -75,14 +75,14 @@ def createWeights(ftb, ctb, project, featureThreshold, imagesOnly):
     ctb.saveClassifierTables(ids, classIds, featureMatrix,
                              featureNames, featureWeights, classNames)
 
-    PycharmStorage.addFileAnnotationTo(ctb.tcF, project)
-    PycharmStorage.addFileAnnotationTo(ctb.tcW, project)
-    PycharmStorage.addFileAnnotationTo(ctb.tcL, project)
+    PychrmStorage.addFileAnnotationTo(ctb.tcF, project)
+    PychrmStorage.addFileAnnotationTo(ctb.tcW, project)
+    PychrmStorage.addFileAnnotationTo(ctb.tcL, project)
 
     message += 'Saved classifier\n'
 
-    classifierName = PycharmStorage.CLASSIFIER_PYCHRM_NAMESPACE
-    ns = PycharmStorage.createClassifierTagSet(
+    classifierName = PychrmStorage.CLASSIFIER_PYCHRM_NAMESPACE
+    ns = PychrmStorage.createClassifierTagSet(
         ctb.tcL.conn, classifierName, project.getName(), classNames, project)
     message += 'Created tagset: %s\n' % ns
 
@@ -99,7 +99,7 @@ def reduceFeatures(fts, weights):
 def addToFeatureSet(ftb, ds, fts, classId, imagesOnly):
     message = ''
 
-    tid = PycharmStorage.getAttachedTableFile(ftb.tc, ds)
+    tid = PychrmStorage.getAttachedTableFile(ftb.tc, ds)
     if tid:
         if not ftb.openTable(tid):
             return message + '\nERROR: Table not opened'
@@ -149,20 +149,20 @@ def trainClassifier(client, scriptParams):
 
     projectId = projectId[0]
 
-    tableNameIn = '/Pychrm/' + contextName + PycharmStorage.SMALLFEATURES_TABLE
+    tableNameIn = '/Pychrm/' + contextName + PychrmStorage.SMALLFEATURES_TABLE
     tableNameOutF = '/Pychrm/' + contextName + \
-        PycharmStorage.CLASS_FEATURES_TABLE
+        PychrmStorage.CLASS_FEATURES_TABLE
     tableNameOutW = '/Pychrm/' + contextName + \
-        PycharmStorage.CLASS_WEIGHTS_TABLE
+        PychrmStorage.CLASS_WEIGHTS_TABLE
     tableNameOutL = '/Pychrm/' + contextName + \
-        PycharmStorage.CLASS_LABELS_TABLE
+        PychrmStorage.CLASS_LABELS_TABLE
     message += 'tableNameIn:' + tableNameIn + '\n'
     message += 'tableNameOutF:' + tableNameOutF + '\n'
     message += 'tableNameOutW:' + tableNameOutW + '\n'
     message += 'tableNameOutL:' + tableNameOutL + '\n'
 
-    ftb = PycharmStorage.FeatureTable(client, tableNameIn)
-    ctb = PycharmStorage.ClassifierTables(
+    ftb = PychrmStorage.FeatureTable(client, tableNameIn)
+    ctb = PychrmStorage.ClassifierTables(
         client, tableNameOutF, tableNameOutW, tableNameOutL)
 
     try:

@@ -29,8 +29,8 @@ import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'utils'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
-import PycharmStorage
-from PycharmStorage import FeatureTable, ClassifierTables
+from OmeroPychrm import PychrmStorage
+from PychrmStorage import FeatureTable, ClassifierTables
 
 
 class ClientHelper(unittest.TestCase):
@@ -61,17 +61,17 @@ class TestFeatures(object):
 class TestPycharmStorage(unittest.TestCase):
 
     def test_parseFeatureName(self):
-        r = PycharmStorage.parseFeatureName('a b [321]')
+        r = PychrmStorage.parseFeatureName('a b [321]')
         self.assertEqual(len(r), 2)
         self.assertEqual(r[0], 'a b')
         self.assertEqual(r[1], 321)
 
     def createFeatureName(self):
-        r = PycharmStorage.createFeatureName('a b', 321)
+        r = PychrmStorage.createFeatureName('a b', 321)
         self.assertEqual(r, 'a b [321]')
 
     def featureSizes(self):
-        ftsz = PycharmStorage.featureSizes(['a b [12]', 'c d [3]', 'a b [14]'])
+        ftsz = PychrmStorage.featureSizes(['a b [12]', 'c d [3]', 'a b [14]'])
         self.assertEqual(len(ftsz.keys), 2)
         self.assertIn(ftsz, 'a b')
         self.assertIn(ftsz, 'c d')
@@ -268,27 +268,27 @@ class TestClassifierTables(ClientHelper):
 class TestAnnotations(ClientHelper):
 
     def test_addFileAnnotationTo(self):
-        PycharmStorage.addFileAnnotationTo(tc, obj)
+        PychrmStorage.addFileAnnotationTo(tc, obj)
 
     def test_getAttachedTableFile(self):
-        PycharmStorage.getAttachedTableFile(tc, obj)
+        PychrmStorage.getAttachedTableFile(tc, obj)
 
     def test_addCommentTo(self):
-        PycharmStorage.addCommentTo(conn, comment, objType, objId)
+        PychrmStorage.addCommentTo(conn, comment, objType, objId)
 
     def test_addTagTo(self):
-        PycharmStorage.addTagTo(conn, tag, objType, objId)
+        PychrmStorage.addTagTo(conn, tag, objType, objId)
 
     def test_createClassifierTagSet(self):
-        PycharmStorage.createClassifierTagSet(
+        PychrmStorage.createClassifierTagSet(
             conn, classifierName, instanceName, labels, project)
 
     def test_getClassifierTagSet(self):
-        PycharmStorage.getClassifierTagSet(
+        PychrmStorage.getClassifierTagSet(
             classifierName, instanceName, project)
 
     def test_datasetGenerator(self):
-        PycharmStorage.datasetGenerator(conn, dataType, ids)
+        PychrmStorage.datasetGenerator(conn, dataType, ids)
 
 
 

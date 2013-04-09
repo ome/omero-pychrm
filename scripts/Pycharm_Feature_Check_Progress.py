@@ -28,7 +28,7 @@ from omero.rtypes import rstring, rlong
 from datetime import datetime
 
 
-import PycharmStorage
+from OmeroPychrm import PychrmStorage
 
 
 
@@ -37,7 +37,7 @@ def countCompleted(ftb, ds):
     tc = ftb.tc
 
     imIds = [im.getId() for im in ds.listChildren()]
-    tid = PycharmStorage.getAttachedTableFile(ftb.tc, ds)
+    tid = PychrmStorage.getAttachedTableFile(ftb.tc, ds)
     if tid is None:
         message += 'Image feature status PRESENT:%d ABSENT:%d\n' % \
             (0, len(imIds))
@@ -67,7 +67,7 @@ def processImages(client, scriptParams):
 
     tableName = '/Pychrm/' + contextName + '/SmallFeatureSet.h5'
     message += 'tableName:' + tableName + '\n'
-    ftb = PycharmStorage.FeatureTable(client, tableName)
+    ftb = PychrmStorage.FeatureTable(client, tableName)
 
     try:
         # Get the datasets
@@ -77,7 +77,7 @@ def processImages(client, scriptParams):
         if not objects:
             return message
 
-        datasets = PycharmStorage.datasetGenerator(ftb.conn, dataType, ids)
+        datasets = PychrmStorage.datasetGenerator(ftb.conn, dataType, ids)
         for ds in datasets:
             message += 'Processing dataset id:%d\n' % ds.getId()
             msg = countCompleted(ftb, ds)

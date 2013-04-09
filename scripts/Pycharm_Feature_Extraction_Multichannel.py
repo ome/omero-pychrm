@@ -30,7 +30,7 @@ from itertools import izip
 from tempfile import NamedTemporaryFile
 
 
-import PycharmStorage
+from OmeroPychrm import PychrmStorage
 from pychrm.FeatureSet import Signatures
 
 try:
@@ -77,7 +77,7 @@ def extractFeatures(ftb, ds, newOnly, chNames, imageId = None, im = None,
     else:
         imageId = im.getId()
 
-    tid = PycharmStorage.getAttachedTableFile(ftb.tc, ds)
+    tid = PychrmStorage.getAttachedTableFile(ftb.tc, ds)
     if tid:
         if not ftb.openTable(tid):
             return message + '\nERROR: Table not opened\n'
@@ -109,7 +109,7 @@ def extractFeatures(ftb, ds, newOnly, chNames, imageId = None, im = None,
     if not tid:
         ftb.createTable(ftall.names)
         message += 'Created new table\n'
-        message += PycharmStorage.addFileAnnotationTo(tc, ds)
+        message += PychrmStorage.addFileAnnotationTo(tc, ds)
 
     ftb.saveFeatures(imageId, ftall)
     return message + 'Extracted features from Image id:%d\n' % imageId
@@ -150,7 +150,7 @@ def processImages(client, scriptParams):
 
     tableName = '/Pychrm/' + contextName + '/SmallFeatureSet.h5'
     message += 'tableName:' + tableName + '\n'
-    ftb = PycharmStorage.FeatureTable(client, tableName)
+    ftb = PychrmStorage.FeatureTable(client, tableName)
 
     try:
         nimages = 0
@@ -162,7 +162,7 @@ def processImages(client, scriptParams):
         if not objects:
             return message
 
-        datasets = list(PycharmStorage.datasetGenerator(
+        datasets = list(PychrmStorage.datasetGenerator(
                 ftb.conn, dataType, ids))
 
         good, chNames, msg = checkChannels(datasets)

@@ -27,15 +27,15 @@ from omero.rtypes import rstring, rlong
 from datetime import datetime
 import numpy
 
-import PycharmStorage
+from OmeroPychrm import PychrmStorage
 import pychrm.FeatureSet
 
 
 
 def loadClassifier(ctb, project):
-    tidF = PycharmStorage.getAttachedTableFile(ctb.tcF, project)
-    tidW = PycharmStorage.getAttachedTableFile(ctb.tcW, project)
-    tidL = PycharmStorage.getAttachedTableFile(ctb.tcL, project)
+    tidF = PychrmStorage.getAttachedTableFile(ctb.tcF, project)
+    tidW = PychrmStorage.getAttachedTableFile(ctb.tcW, project)
+    tidL = PychrmStorage.getAttachedTableFile(ctb.tcL, project)
 
     if tidF is None or tidW is None or tidL is None:
         raise Exception('Incomplete set of classifier tables: %s' %
@@ -125,15 +125,15 @@ def addPredictionsToImages(conn, prediction, dsId, commentImages, tagSet):
         imId = long(r.source_file)
 
         if commentImages:
-            message += PycharmStorage.addCommentTo(conn, c, 'Image', imId)
+            message += PychrmStorage.addCommentTo(conn, c, 'Image', imId)
         im = conn.getObject('Image', imId)
         dsComment += im.getName() + ' ' + c + '\n'
 
         if tagMap:
             tag = tagMap[r.predicted_class_name]._obj
-            message += PycharmStorage.addTagTo(conn, tag, 'Image', imId)
+            message += PychrmStorage.addTagTo(conn, tag, 'Image', imId)
 
-    message += PycharmStorage.addCommentTo(conn, dsComment, 'Dataset', dsId)
+    message += PychrmStorage.addCommentTo(conn, dsComment, 'Dataset', dsId)
     return message
 
 
@@ -147,7 +147,7 @@ def reduceFeatures(fts, weights):
 def addToFeatureSet(ftb, ds, fts, classId):
     message = ''
 
-    tid = PycharmStorage.getAttachedTableFile(ftb.tc, ds)
+    tid = PychrmStorage.getAttachedTableFile(ftb.tc, ds)
     if tid:
         if not ftb.openTable(tid):
             return message + '\nERROR: Table not opened'
@@ -184,33 +184,33 @@ def predict(client, scriptParams):
 
     contextName = scriptParams['Context_Name']
 
-    tableNameIn = '/Pychrm/' + contextName + PycharmStorage.SMALLFEATURES_TABLE
+    tableNameIn = '/Pychrm/' + contextName + PychrmStorage.SMALLFEATURES_TABLE
     tableNameF = '/Pychrm/' + contextName + \
-        PycharmStorage.CLASS_FEATURES_TABLE
+        PychrmStorage.CLASS_FEATURES_TABLE
     tableNameW = '/Pychrm/' + contextName + \
-        PycharmStorage.CLASS_WEIGHTS_TABLE
+        PychrmStorage.CLASS_WEIGHTS_TABLE
     tableNameL = '/Pychrm/' + contextName + \
-        PycharmStorage.CLASS_LABELS_TABLE
+        PychrmStorage.CLASS_LABELS_TABLE
     message += 'tableNameIn:' + tableNameIn + '\n'
     message += 'tableNameF:' + tableNameF + '\n'
     message += 'tableNameW:' + tableNameW + '\n'
     message += 'tableNameL:' + tableNameL + '\n'
 
-    ftb = PycharmStorage.FeatureTable(client, tableNameIn)
-    ctb = PycharmStorage.ClassifierTables(
+    ftb = PychrmStorage.FeatureTable(client, tableNameIn)
+    ctb = PychrmStorage.ClassifierTables(
         client, tableNameF, tableNameW, tableNameL)
 
     try:
         message += 'Loading classifier\n'
         trainProject = ftb.conn.getObject('Project', projectId)
         trainFts, weights = loadClassifier(ctb, trainProject)
-        classifierName = PycharmStorage.CLASSIFIER_PYCHRM_NAMESPACE
-        tagSet = PycharmStorage.getClassifierTagSet(
+        classifierName = PychrmStorage.CLASSIFIER_PYCHRM_NAMESPACE
+        tagSet = PychrmStorage.getClassifierTagSet(
             classifierName, trainProject.getName(), trainProject)
 
         # Predict
         message += 'Predicting\n'
-        predDatasets = PycharmStorage.datasetGenerator(
+        predDatasets = PychrmStorage.datasetGenerator(
             ftb.conn, dataType, predictIds)
 
         for ds in predDatasets:

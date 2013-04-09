@@ -29,7 +29,7 @@ from omero.gateway import FileAnnotationWrapper, CommentAnnotationWrapper
 import omero
 from datetime import datetime
 
-import PycharmStorage
+from OmeroPychrm import PychrmStorage
 
 
 def removeAnnotations(conn, obj, rmTables, rmComments, rmTags):
@@ -38,7 +38,7 @@ def removeAnnotations(conn, obj, rmTables, rmComments, rmTags):
     """
     rmIds = []
     for ann in obj.listAnnotations():
-        if ann.getNs() == PycharmStorage.PYCHRM_NAMESPACE:
+        if ann.getNs() == PychrmStorage.PYCHRM_NAMESPACE:
             if (rmTables and isinstance(ann, FileAnnotationWrapper)) or \
                 (rmComments and isinstance(ann, CommentAnnotationWrapper)):
                 rmIds.append(ann.getId())
@@ -73,7 +73,7 @@ def removeTagAnnotations(conn, obj):
     params = omero.sys.Parameters()
     params.map = {
         'parentid': wrap(obj.getId()),
-        'ns': wrap(PycharmStorage.CLASSIFIER_PYCHRM_NAMESPACE + '/%')
+        'ns': wrap(PychrmStorage.CLASSIFIER_PYCHRM_NAMESPACE + '/%')
         }
     anns = conn.getQueryService().findAllByQuery(q, params)
 
