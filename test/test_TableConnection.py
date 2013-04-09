@@ -27,7 +27,7 @@ from omero.rtypes import unwrap
 import collections
 
 import sys, os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'utils'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'OmeroPychrm'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
 from TableConnection import Connection, TableConnection, FeatureTableConnection

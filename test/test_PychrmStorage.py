@@ -26,10 +26,10 @@ import omero
 from omero.rtypes import unwrap
 
 import sys, os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'utils'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'OmeroPychrm'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
-from OmeroPychrm import PychrmStorage
+import PychrmStorage
 from PychrmStorage import FeatureTable, ClassifierTables
 
 
@@ -46,7 +46,7 @@ class ClientHelper(unittest.TestCase):
         ICE_CONFIG must be set.
         """
         self.cli, self.sess = self.create_client()
-        self.tableName = '/test_PycharmStorage/test.h5'
+        self.tableName = '/test_PychrmStorage/test.h5'
 
     def tearDown(self):
         self.cli.closeSession()
@@ -58,7 +58,7 @@ class TestFeatures(object):
         self.values = map(lambda x: x + inc, [10., 11., 12.])
 
 
-class TestPycharmStorage(unittest.TestCase):
+class TestPychrmStorage(unittest.TestCase):
 
     def test_parseFeatureName(self):
         r = PychrmStorage.parseFeatureName('a b [321]')
@@ -178,9 +178,9 @@ class TestClassifierTables(ClientHelper):
 
     def setUp(self):
         super(TestClassifierTables, self).setUp()
-        self.tableNameF = '/test_PycharmStorage/ClassFeatures.h5'
-        self.tableNameW = '/test_PycharmStorage/Weights.h5'
-        self.tableNameL = '/test_PycharmStorage/ClassLabels.h5'
+        self.tableNameF = '/test_PychrmStorage/ClassFeatures.h5'
+        self.tableNameW = '/test_PychrmStorage/Weights.h5'
+        self.tableNameL = '/test_PychrmStorage/ClassLabels.h5'
 
     def create_classifierTables(self):
         cli, sess = self.create_client()
