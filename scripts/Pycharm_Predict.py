@@ -27,11 +27,6 @@ from omero.rtypes import rstring, rlong
 from datetime import datetime
 import numpy
 
-import sys, os
-basedir = os.getenv('HOME') + '/work/omero-pychrm'
-for p in ['/utils', '/pychrm-lib']:
-    if basedir + p not in sys.path:
-        sys.path.append(basedir + p)
 import PycharmStorage
 import pychrm.FeatureSet
 

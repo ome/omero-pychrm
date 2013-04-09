@@ -30,11 +30,6 @@ from itertools import izip
 from tempfile import NamedTemporaryFile
 
 
-import sys, os
-basedir = os.getenv('HOME') + '/work/omero-pychrm'
-for p in ['/utils', '/pychrm-lib']:
-    if basedir + p not in sys.path:
-        sys.path.append(basedir + p)
 import PycharmStorage
 from pychrm.FeatureSet import Signatures
 

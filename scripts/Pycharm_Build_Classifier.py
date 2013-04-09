@@ -28,11 +28,6 @@ from datetime import datetime
 from math import ceil
 from itertools import izip
 
-import sys, os
-basedir = os.getenv('HOME') + '/work/omero-pychrm'
-for p in ['/utils', '/pychrm-lib']:
-    if basedir + p not in sys.path:
-        sys.path.append(basedir + p)
 import PycharmStorage
 import pychrm.FeatureSet
 
