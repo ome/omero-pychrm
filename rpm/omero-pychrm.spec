@@ -11,8 +11,8 @@ Vendor: Simon Li <spli@dundee.ac.uk>
 Url: https://github.com/manics/omero-pychrm
 
 
+BuildRequires: python-setuptools >= 0.6
 Requires: pychrm = 0.1.0
-
 
 %global omerodir /opt/omero
 

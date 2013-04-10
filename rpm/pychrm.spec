@@ -11,6 +11,9 @@ Url: http://code.google.com/p/wnd-charm
 
 Patch1: pychrm-r558-demo_feb_2013.patch
 
+BuildRequires: python-setuptools >= 0.6
+BuildRequires: python-devel >= 2.6
+BuildRequires: gcc >= 4.4
 BuildRequires: fftw-devel >= 3.2.0
 BuildRequires: libtiff-devel >= 3.9.0
 
