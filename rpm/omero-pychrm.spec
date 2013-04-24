@@ -56,7 +56,7 @@ rm -rf %{buildroot}
 
 %files scripts
 %defattr(-,root,root)
-/opt/omero/server/lib/scripts/pychrm
+%{omerodir}/server/lib/scripts/pychrm
 
 
 %changelog
