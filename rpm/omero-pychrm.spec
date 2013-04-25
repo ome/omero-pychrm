@@ -13,6 +13,7 @@ Url: https://github.com/manics/omero-pychrm
 
 BuildRequires: python-setuptools >= 0.6
 Requires: pychrm = 0.1.0
+Requires: omero-server >= 4.4.7
 
 %global omerodir /opt/omero
 
@@ -23,16 +24,6 @@ This requires PyCHRM, the WND-CHRM https://code.google.com/p/wnd-charm/
 Python wrapper, to be installed.
 
 
-%package scripts
-Summary: OMERO server scripts
-
-Requires: omero-pychrm = %{version}-%{release}
-Requires: omero-server >= 4.4.6
-
-%description scripts
-Scripts for running PyCHRM on OMERO.server.
-
-
 %prep
 %setup -n %{name}-%{version}
 
@@ -40,7 +31,7 @@ Scripts for running PyCHRM on OMERO.server.
 python setup.py build
 
 %install
-python setup.py install --single-version-externally-managed -O1 --root=%{buildroot} --record=INSTALLED_FILES
+python setup.py install --single-version-externally-managed -O1 --root=%{buildroot}
 
 mkdir -p %{buildroot}%{omerodir}/server/lib/scripts
 cp -a scripts %{buildroot}%{omerodir}/server/lib/scripts/pychrm
@@ -50,19 +41,16 @@ rm -rf %{buildroot}
 
 
 
-%files -f INSTALLED_FILES
+%files
 %defattr(-,root,root)
-
-
-%files scripts
-%defattr(-,root,root)
+%{python_sitelib}/OmeroPychrm*
 %{omerodir}/server/lib/scripts/pychrm
 
 
 %changelog
 
-* Wed Apr 24 2013 Simon Li <spli@dundee.ac.uk> - 0.1.0-2
-- Changed the OMERO server directory
+* Thu Apr 25 2013 Simon Li <spli@dundee.ac.uk> - 0.1.0-2
+- Remove separate scripts package
 
 * Wed Apr 10 2013 Simon Li <spli@dundee.ac.uk> - 0.1.0-1
 - Initial rpm
