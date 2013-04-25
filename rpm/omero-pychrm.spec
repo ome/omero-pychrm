@@ -14,7 +14,7 @@ Url: https://github.com/manics/omero-pychrm
 BuildRequires: python-setuptools >= 0.6
 Requires: pychrm = 0.1.0
 
-%global omerodir /opt/omero44
+%global omerodir /opt/omero
 
 
 %description
