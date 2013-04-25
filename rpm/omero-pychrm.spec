@@ -2,7 +2,7 @@
 Summary: Scripts for using PyCHRM in OMERO
 Name: omero-pychrm
 Version: 0.1.0
-Release: 2
+Release: 2%{?dist}
 Source0: %{name}-%{version}.tar.gz
 License: LICENSE.txt
 Group: Development/Libraries
