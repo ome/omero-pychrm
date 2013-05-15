@@ -1,3 +1,24 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+#
+# Copyright (C) 2013 University of Dundee & Open Microscopy Environment.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
 #
 #
 from omero import scripts
@@ -8,12 +29,7 @@ from omero.gateway import FileAnnotationWrapper, CommentAnnotationWrapper
 import omero
 from datetime import datetime
 
-import sys, os
-basedir = os.getenv('HOME') + '/work/omero-pychrm'
-for p in ['/utils']:
-    if basedir + p not in sys.path:
-        sys.path.append(basedir + p)
-import FeatureHandler
+from OmeroPychrm import PychrmStorage
 
 
 def removeAnnotations(conn, obj, rmTables, rmComments, rmTags):
@@ -22,7 +38,7 @@ def removeAnnotations(conn, obj, rmTables, rmComments, rmTags):
     """
     rmIds = []
     for ann in obj.listAnnotations():
-        if ann.getNs() == FeatureHandler.PYCHRM_NAMESPACE:
+        if ann.getNs() == PychrmStorage.PYCHRM_NAMESPACE:
             if (rmTables and isinstance(ann, FileAnnotationWrapper)) or \
                 (rmComments and isinstance(ann, CommentAnnotationWrapper)):
                 rmIds.append(ann.getId())
@@ -57,7 +73,7 @@ def removeTagAnnotations(conn, obj):
     params = omero.sys.Parameters()
     params.map = {
         'parentid': wrap(obj.getId()),
-        'ns': wrap(FeatureHandler.CLASSIFIER_PYCHRM_NAMESPACE + '/%')
+        'ns': wrap(PychrmStorage.CLASSIFIER_PYCHRM_NAMESPACE + '/%')
         }
     anns = conn.getQueryService().findAllByQuery(q, params)
 
@@ -71,7 +87,8 @@ def removeTagAnnotations(conn, obj):
     if rmIds:
         conn.deleteObjects(linkType, rmIds)
 
-    message = 'Removed tags: %s from id:%d' % (rmTags, obj.getId())
+    message = 'Removed tags: %s from %s id:%d\n' % (
+        rmTags, obj.OMERO_CLASS, obj.getId())
     return message
 
 
@@ -105,7 +122,7 @@ def runScript():
 
     dataTypes = [rstring('Project'), rstring('Dataset'), rstring('Image')]
     client = scripts.client(
-        'Pycharm_Remove_Annotations.py',
+        'Pychrm_Remove_Annotations.py',
         'Remove Pychrm annotations from Datasets and contained Images, or just Images',
 
         scripts.String('Data_Type', optional=False, grouping='1',

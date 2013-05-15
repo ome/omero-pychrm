@@ -1,3 +1,24 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+#
+# Copyright (C) 2013 University of Dundee & Open Microscopy Environment.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
 #
 #
 from omero import scripts
@@ -9,12 +30,7 @@ from itertools import izip
 from tempfile import NamedTemporaryFile
 
 
-import sys, os
-basedir = os.getenv('HOME') + '/work/omero-pychrm'
-for p in ['/utils', '/pychrm-lib']:
-    if basedir + p not in sys.path:
-        sys.path.append(basedir + p)
-import FeatureHandler
+from OmeroPychrm import PychrmStorage
 from pychrm.FeatureSet import Signatures
 
 try:
@@ -43,9 +59,10 @@ def getTifs(im):
     return tmpfs
 
 
-def extractFeatures(tc, ds, newOnly, chNames, imageId = None, im = None,
+def extractFeatures(ftb, ds, newOnly, chNames, imageId = None, im = None,
                     prefixChannel = True):
     message = ''
+    tc = ftb.tc
 
     # dataset must be explicitly provided because an image can be linked to
     # multiple datasets in which case im.getDataset() doesn't work
@@ -54,19 +71,19 @@ def extractFeatures(tc, ds, newOnly, chNames, imageId = None, im = None,
             #raise Exception('No input image')
             raise omero.ServerError('No input image')
 
-        im = tc.conn.getObject('Image', imageId)
+        im = ftb.conn.getObject('Image', imageId)
         if not im:
             return 'Image id:%d not found\n' % imageId
     else:
         imageId = im.getId()
 
-    tid = FeatureHandler.getAttachedTableFile(tc, tc.tableName, ds)
+    tid = PychrmStorage.getAttachedTableFile(ftb.tc, ds)
     if tid:
-        if not FeatureHandler.openTable(tc, tableId=tid):
+        if not ftb.openTable(tid):
             return message + '\nERROR: Table not opened\n'
         message += 'Opened table id:%d\n' % tid
 
-        if newOnly and FeatureHandler.tableContainsId(tc, imageId):
+        if newOnly and ftb.tableContainsId(imageId):
             return message + 'Image id:%d features already in table' % imageId
 
     # Pychrm only takes tifs
@@ -90,11 +107,11 @@ def extractFeatures(tc, ds, newOnly, chNames, imageId = None, im = None,
 
     # Save the features to a table
     if not tid:
-        FeatureHandler.createTable(tc, ftall.names)
+        ftb.createTable(ftall.names)
         message += 'Created new table\n'
-        message += FeatureHandler.addFileAnnotationTo(tc, tc.table, ds)
+        message += PychrmStorage.addFileAnnotationTo(tc, ds)
 
-    FeatureHandler.saveFeatures(tc, imageId, ftall)
+    ftb.saveFeatures(imageId, ftall)
     return message + 'Extracted features from Image id:%d\n' % imageId
 
 
@@ -133,19 +150,20 @@ def processImages(client, scriptParams):
 
     tableName = '/Pychrm/' + contextName + '/SmallFeatureSet.h5'
     message += 'tableName:' + tableName + '\n'
-    tc = FeatureHandler.connFeatureTable(client, tableName)
+    ftb = PychrmStorage.FeatureTable(client, tableName)
 
     try:
         nimages = 0
 
         # Get the datasets
-        objects, logMessage = script_utils.getObjects(tc.conn, scriptParams)
+        objects, logMessage = script_utils.getObjects(ftb.conn, scriptParams)
         message += logMessage
 
         if not objects:
             return message
 
-        datasets = list(FeatureHandler.datasetGenerator(tc.conn, dataType, ids))
+        datasets = list(PychrmStorage.datasetGenerator(
+                ftb.conn, dataType, ids))
 
         good, chNames, msg = checkChannels(datasets)
         message += msg
@@ -161,7 +179,7 @@ def processImages(client, scriptParams):
             message += 'Processing dataset id:%d\n' % d.getId()
             for image in d.listChildren():
                 message += 'Processing image id:%d\n' % image.getId()
-                msg = extractFeatures(tc, d, newOnly, chNames, im=image,
+                msg = extractFeatures(ftb, d, newOnly, chNames, im=image,
                                       prefixChannel=prefixChannel)
                 message += msg + '\n'
 
@@ -169,7 +187,7 @@ def processImages(client, scriptParams):
         print message
         raise
     finally:
-        tc.closeTable()
+        ftb.close()
 
     return message
 
@@ -180,7 +198,7 @@ def runScript():
     """
 
     client = scripts.client(
-        'Pycharm_Feature_Extraction_Multichannel.py',
+        'Pychrm_Feature_Extraction_Multichannel.py',
         'Extract the small Pychrm feature set from images',
 
         scripts.String('Data_Type', optional=False, grouping='1',

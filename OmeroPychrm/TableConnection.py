@@ -1,6 +1,28 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+#
+# Copyright (C) 2013 University of Dundee & Open Microscopy Environment.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
 #
 #
 from itertools import izip
+import logging
 import omero
 from copy import deepcopy
 from omero.gateway import BlitzGateway
@@ -15,30 +37,30 @@ class TableConnectionError(Exception):
     pass
 
 
-class TableConnection(object):
+class Connection(object):
     """
-    A basic client-side wrapper for OMERO.tables which handles opening
-    and closing tables.
+    A wrapper for managing a client session context
     """
 
-    def __init__(self, user = None, passwd = None, host = 'localhost',
-                 client = None, tableName = None, tableId = None):
+    def __init__(self, user = None, passwd = None, host = None, client = None):
         """
-        Create a new table handler, either by specifying user and passwd or by
+        Create a new client session, either by specifying user and passwd or by
         providing a client object (for scripts)
         @param user Username
         @param passwd Password
         @param host The server hostname
         @param client Client object with an active session
-        @param tableName The name of the table file
-        @param tableId The OriginalFile ID of the table file
         """
+
+        self.log = logging.getLogger(__name__)
+        #self.log.setLevel(logging.DEBUG)
+
         if not client:
             client = omero.client(host)
             sess = client.createSession(user, passwd)
             client.enableKeepAlive(60)
         else:
-             sess = client.getSession()
+            sess = client.getSession()
 
         self.conn = BlitzGateway(client_obj = client)
 
@@ -46,37 +68,70 @@ class TableConnection(object):
         if (not self.res.areTablesEnabled()):
             raise TableConnectionError('OMERO.tables not enabled')
 
+    def __enter__(self):
+        self.log.debug('Entering Connection')
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.log.debug('Exiting Connection')
+        self.close()
+
+    def close(self):
+        """
+        Child classes can override this method but must explcitly call this
+        method to ensure the client session is cleaned
+        """
+        self.log.debug('Closing Connection')
+        self.conn._closeSession()
+
+
+class TableConnection(Connection):
+    """
+    A basic client-side wrapper for OMERO.tables which handles opening
+    and closing tables.
+    """
+
+    def __init__(self, user = None, passwd = None, host = None, client = None,
+                 tableName = None):
+        """
+        Create a new table handler, either by specifying user and passwd or by
+        providing a client object (for scripts)
+        @param user Username
+        @param passwd Password
+        @param host The server hostname
+        @param client Client object with an active session
+        @param tableName If provided the name of any table opened by subsequent
+        calls will be checked against this, and any new tables will be named
+        by this
+        """
+        super(TableConnection, self).__init__(user, passwd, host, client)
+
         repos = self.res.repositories()
         self.rid = repos.descriptions[0].id.val
 
         self.tableName = tableName
-        self.tableId = tableId
+        self.tableId = None
         self.table = None
 
-    def __enter__(self):
-        print 'Entering Connection'
-        return self
-
-    def __exit__(self, type, value, traceback):
-        print 'Exiting Connection'
-        self.close()
-
-    def close(self):
-        print 'Closing Connection'
+    def close(self, parent=True):
+        """
+        Close all tables.
+        @param parent if True then also call the parent class close() method
+        """
+        self.log.debug('Closing TableConnection')
         try:
             self.closeTable()
+            self.tableId = None
+            self.table = None
         finally:
-            self.conn._closeSession()
+            if parent:
+                super(TableConnection, self).close()
 
 
-    def openTable(self, tableId = None, tableName = None):
+    def openTable(self, tableId):
         """
-        Opens an existing table by ID or name.
-        If there are multiple tables with the same name this throws an error
-        (should really use an annotation to keep track of this).
-        If tableId is supplied it will be used in preference to tableName
-        @param tableName The name of the table file
-        @param tableId The OriginalFile ID of the table file
+        Opens an existing table by ID.
+        @param tableId The OriginalFile ID of the table file, required.
         @return handle to the table
         """
 
@@ -91,90 +146,73 @@ class TableConnection(object):
                 t = self.res.openTable(ofile)
                 if t:
                     return t
-                print 'Failed to open table %d (attempt %d)' % \
-                    (ofile.getId().val, i + 1)
-            raise Exception('Failed to open table %d' % ofile.getId().val)
+                self.log.warn('Failed to open table %d (attempt %d)',
+                              ofile.getId().val, i + 1)
+            raise TableConnectionError(
+                'Failed to open table %d' % ofile.getId().val)
 
-
-        if not tableId and not tableName:
-            tableId = self.tableId
-            tableName = self.tableName
 
         if not tableId:
-            if not tableName:
-                tableName = self.tableName
-            attrs = {'name': tableName}
-            ofiles = list(
-                self.conn.getObjects("OriginalFile", attributes = attrs))
-            if len(ofiles) > 1:
-                raise TableConnectionError(
-                    'Multiple tables with name:%s found' % tableName)
-            if not ofiles:
-                raise TableConnectionError(
-                    'No table found with name:%s' % tableName)
-            ofile = ofiles[0]
-        else:
-            attrs = {'id': long(tableId)}
-            if tableName:
-                attrs['name'] = tableName
-            ofile = self.conn.getObject("OriginalFile", attributes = attrs)
+            tableId = self.tableId
+        if not tableId:
+            raise TableConnectionError('Table ID required')
 
+        attrs = {'id': long(tableId)}
+        ofile = self.conn.getObject("OriginalFile", attributes = attrs)
         if not ofile:
-            raise TableConnectionError('No table found with name:%s id:%s' %
-                                       (tableName, tableId))
+            raise TableConnectionError('No table found with id:%s' % tableId)
+        if self.tableName and ofile.getName() != self.tableName:
+            raise TableConnectionError(
+                'Expected table id:%s to have name:%s, instead found %s' % (
+                    tableId, self.tableName, ofile.getName()))
 
         if self.tableId == ofile.getId():
             if not self.table:
-                print 'WARNING: Expected table to be already open'
+                self.log.warn('Expected table to be already open')
         else:
             self.table = None
+
         if self.table:
-            print 'Using existing connection to table name:%s id:%d' % \
-                (tableName, tableId)
+            self.log.debug('Using existing connection to table id:%d', tableId)
         else:
             self.closeTable()
             self.table = openRetry(ofile._obj, 5)
-            #self.table = self.res.openTable(ofile._obj)
-            #if not self.table:
-            #    # This is probably OMERO playing up for some reason
-            #    raise Exception('Failed to open table %d' % ofile.getId())
             self.tableId = ofile.getId()
-            print 'Opened table name:%s id:%d' % (tableName, self.tableId)
+            self.log.debug('Opened table id:%d', self.tableId)
 
         try:
-            print '\t%d rows %d columns' % \
-                (self.table.getNumberOfRows(), len(self.table.getHeaders()))
+            self.log.debug('\t%d rows %d columns', self.table.getNumberOfRows(),
+                           len(self.table.getHeaders()))
         except omero.ApiUsageException:
             pass
 
-        self.tableId = tableId
         return self.table
+
+
+    def findByName(self):
+        """
+        Searches for OriginalFile objects by name, does not check whether
+        file is a table
+        @return an iterator to a sequence of OriginalFiles
+        """
+        if not self.tableName:
+            raise TableConnectionError('No tableName set')
+        attrs = {'name': self.tableName}
+        return self.conn.getObjects("OriginalFile", attributes = attrs)
 
 
     def deleteAllTables(self):
         """
-        Delete all tables with self.tableName
+        Delete all tables with tableName
         Will fail if there are any annotation links
         """
+        if not self.tableName:
+            raise TableConnectionError('No tableName set')
         ofiles = self.conn.getObjects("OriginalFile", \
             attributes = {'name': self.tableName})
         ids = [f.getId() for f in ofiles]
-        print 'Deleting ids:%s' % ids
+        self.log.debug('Deleting ids:%s', ids)
         self.conn.deleteObjects('OriginalFile', ids)
-
-
-    def dumpTable(self, table):
-        """
-        Print out the table
-        """
-        headers = table.getHeaders()
-        print ', '.join([t.name for t in headers])
-        nrows = table.getNumberOfRows()
-        #data = table.readCoordinates(xrange(table.getNumberOfRows))
-
-        for r in xrange(nrows):
-            data = table.read(range(len(headers)), r, r + 1)
-            print ', '.join(['%.2f' % c.values[0] for c in data.columns])
 
 
     def closeTable(self):
@@ -196,6 +234,8 @@ class TableConnection(object):
         @return A handle to the table
         """
         self.closeTable()
+        if not self.tableName:
+            raise TableConnectionError('No tableName set')
 
         self.table = self.res.newTable(self.rid, self.tableName)
         ofile = self.table.getOriginalFile()
@@ -203,13 +243,14 @@ class TableConnection(object):
 
         try:
             self.table.initialize(schema)
-            print "Initialised '%s' (%d)" % (self.tableName, self.tableId)
+            self.log.debug("Initialised '%s' (%d)",
+                           self.tableName, self.tableId)
         except Exception as e:
-            print "Failed to create table: %s" % e
+            self.log.error("Failed to create table: %s", e)
             try:
-                self.table.delete
+                self.table.delete()
             except Exception as ed:
-                print "Failed to delete table: %s" % ed
+                self.log.error("Failed to delete table: %s", ed)
 
             self.table = None
             self.tableId = None
@@ -270,15 +311,16 @@ class TableConnection(object):
         """
         nv = [len(c.values) for c in columns]
         if len(set(nv)) != 1:
-            raise Exception('All columns must be the same length, received: %s'
-                            % nv)
+            raise TableConnectionError(
+                'All columns must be the same length, received: %s' % nv)
         nv = nv[0]
 
         headers = self.table.getHeaders()
         if len(columns) != len(headers) or \
                 [h.name for h in headers] != [c.name for c in columns] or \
                 [type(h) for h in headers] != [type(c) for c in columns]:
-            raise Exception('Mismatch between columns and table headers')
+            raise TableConnectionError(
+                'Mismatch between columns and table headers')
 
         p = 0
         q = 0
@@ -307,13 +349,13 @@ class FeatureTableConnection(TableConnection):
     requesting every time
     """
 
-    def __init__(self, user = None, passwd = None, host = None,
-                 client = None, tableName = None, tableId = None):
+    def __init__(self, user = None, passwd = None, host = None, client = None,
+                 tableName = None):
         """
         Just calls the base-class constructor
         """
-        super(FeatureTableConnection, self).__init__(
-            user, passwd, host, client, tableName, tableId)
+        super(FeatureTableConnection, self).__init__(user, passwd, host, client,
+                                                     tableName)
 
     def createNewTable(self, idcolName, colDescriptions):
         """
@@ -328,7 +370,6 @@ class FeatureTableConnection(TableConnection):
         # columns are valid or not. To make things easier this includes
         # a bool column for the id column even though it should always
         # be valid.
-
 
         cols = [LongColumn(idcolName)] + \
             [DoubleArrayColumn(name, '', size) \
@@ -363,7 +404,8 @@ class FeatureTableConnection(TableConnection):
         @param stop The last + 1 row to be read
         @return A list of columns with the requested array elements, which
         may be empty (null). If the id column is requested this will not be
-        an array.
+        an array. Columns are returned in the order given by
+        colArrayNumbers.keys()
         """
 
         colNumbers = colArrayNumbers.keys()
@@ -429,7 +471,7 @@ class FeatureTableConnection(TableConnection):
         if not idx:
             return None
         if len(idx) > 1:
-            print "Multiple rows found, returning last"
+            self.log.warn("Multiple rows found, returning last")
             # Ordering of rows not guaranteed
         return max(idx)
 

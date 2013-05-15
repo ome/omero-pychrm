@@ -1,3 +1,24 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+#
+# Copyright (C) 2013 University of Dundee & Open Microscopy Environment.
+# All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
 #
 #
 from omero import scripts
@@ -7,26 +28,22 @@ from omero.rtypes import rstring, rlong
 from datetime import datetime
 
 
-import sys, os
-basedir = os.getenv('HOME') + '/work/omero-pychrm'
-for p in ['/utils']:
-    if basedir + p not in sys.path:
-        sys.path.append(basedir + p)
-import FeatureHandler
+from OmeroPychrm import PychrmStorage
 
 
 
-def countCompleted(tc, ds):
+def countCompleted(ftb, ds):
     message = ''
+    tc = ftb.tc
 
     imIds = [im.getId() for im in ds.listChildren()]
-    tid = FeatureHandler.getAttachedTableFile(tc, tc.tableName, ds)
+    tid = PychrmStorage.getAttachedTableFile(ftb.tc, ds)
     if tid is None:
         message += 'Image feature status PRESENT:%d ABSENT:%d\n' % \
             (0, len(imIds))
         return message
 
-    if not FeatureHandler.openTable(tc, tableId=tid):
+    if not ftb.openTable(tid):
         message += 'ERROR: Table not opened\n'
         message += 'Image feature status UNKNOWN:%d\n' % len(imIds)
         return message
@@ -50,27 +67,27 @@ def processImages(client, scriptParams):
 
     tableName = '/Pychrm/' + contextName + '/SmallFeatureSet.h5'
     message += 'tableName:' + tableName + '\n'
-    tc = FeatureHandler.connFeatureTable(client, tableName)
+    ftb = PychrmStorage.FeatureTable(client, tableName)
 
     try:
         # Get the datasets
-        objects, logMessage = script_utils.getObjects(tc.conn, scriptParams)
+        objects, logMessage = script_utils.getObjects(ftb.conn, scriptParams)
         message += logMessage
 
         if not objects:
             return message
 
-        datasets = FeatureHandler.datasetGenerator(tc.conn, dataType, ids)
+        datasets = PychrmStorage.datasetGenerator(ftb.conn, dataType, ids)
         for ds in datasets:
             message += 'Processing dataset id:%d\n' % ds.getId()
-            msg = countCompleted(tc, ds)
+            msg = countCompleted(ftb, ds)
             message += msg
 
     except:
         print message
         raise
     finally:
-        tc.closeTable()
+        ftb.close()
 
     return message
 
@@ -81,7 +98,7 @@ def runScript():
     """
 
     client = scripts.client(
-        'Pycharm_Feature_Check_Progress.py',
+        'Pychrm_Feature_Check_Progress.py',
         'Extract the small Pychrm feature set from images',
 
         scripts.String('Data_Type', optional=False, grouping='1',
