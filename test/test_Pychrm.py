@@ -32,7 +32,7 @@ else:
 import re
 import numpy as np
 
-from pychrm.FeatureSet import \
+from pychrm.FeatureSet import DiscreteBatchClassificationResult, \
     FeatureSet_Discrete, FisherFeatureWeights, Signatures
 
 
@@ -59,6 +59,7 @@ class TestPychrm(unittest.TestCase):
         s3 = self.createSignature(3, 20)
         s4 = self.createSignature(4, 20)
         return s1, s2, s3, s4
+
 
     @unittest.expectedFailure
     def test_featuresInvalidImagePath(self):
@@ -166,6 +167,53 @@ class TestPychrm(unittest.TestCase):
         s1 = s.FeatureReduce(ftnames)
         self.assertEqual(s1.names, ftnames)
         self.assertAlmostEqual(s1.values, [3.0, 2.0])
+
+
+    def test_predictDiscrete(self):
+        s1 = self.createSignature(1, -1)
+        s2 = self.createSignature(2, -2)
+        s3 = self.createSignature(3, -3)
+        s4 = self.createSignature(4, -4)
+
+        trainFts = FeatureSet_Discrete()
+        trainFts.AddSignature(s1, 0)
+        trainFts.AddSignature(s2, 0)
+        trainFts.AddSignature(s3, 1)
+        trainFts.AddSignature(s4, 1)
+        tmp = trainFts.ContiguousDataMatrix()
+
+        # Values are chosen so that different weights give different predictions
+        s5 = self.createSignature(0, -5)
+        s6 = self.createSignature(5, 0)
+
+        testFts = FeatureSet_Discrete()
+        testFts.AddSignature(s5, 0)
+        testFts.AddSignature(s6, 0)
+        tmp = testFts.ContiguousDataMatrix()
+
+        weights = FisherFeatureWeights()
+        weights.names = ['ft [0]', 'ft [1]']
+        weights.values = [2.0, 1.0]
+
+        pred = DiscreteBatchClassificationResult.New(trainFts, testFts, weights)
+        self.assertEqual(len(pred.individual_results), 2)
+        r1, r2 = pred.individual_results
+        np.testing.assert_allclose(r1.marginal_probabilities, [0.975, 0.025],
+                                   atol=1e-3)
+        np.testing.assert_allclose(r2.marginal_probabilities, [0.025, 0.975],
+                                   atol=1e-3)
+
+        weights = FisherFeatureWeights()
+        weights.names = ['ft [0]', 'ft [1]']
+        weights.values = [1.0, 2.0]
+
+        pred = DiscreteBatchClassificationResult.New(trainFts, testFts, weights)
+        self.assertEqual(len(pred.individual_results), 2)
+        r1, r2 = pred.individual_results
+        np.testing.assert_allclose(r1.marginal_probabilities, [0.025, 0.975],
+                                   atol=1e-3)
+        np.testing.assert_allclose(r2.marginal_probabilities, [0.975, 0.025],
+                                   atol=1e-3)
 
 
 
