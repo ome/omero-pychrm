@@ -61,9 +61,8 @@ class TestPychrm(unittest.TestCase):
         return s1, s2, s3, s4
 
 
-    @unittest.expectedFailure
     def test_featuresInvalidImagePath(self):
-        nonExistentImage = 'non0existent-image.tif'
+        nonExistentImage = 'non-existent-image.tif'
         self.assertRaises(
             ValueError, Signatures.SmallFeatureSet, nonExistentImage)
         self.assertRaises(
