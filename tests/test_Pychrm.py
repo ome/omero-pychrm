@@ -45,12 +45,14 @@ class TestPychrm(unittest.TestCase):
         self.image1 = 'test-0032-0008-0008.tif'
         self.image2 = 'test-0032-0016-0016.tif'
         self.expectedLen = 1025
+        self.feature_vector_version = '12345.45689'
 
     def createSignature(self, a, b):
         s = Signatures()
         s.names = ['ft [0]', 'ft [1]']
         s.values = [a, b]
         s.source_file = '%s %s' % (a, b)
+        s.version = self.feature_vector_version
         return s
 
     def createSignatures(self):
@@ -129,6 +131,11 @@ class TestPychrm(unittest.TestCase):
         np.testing.assert_allclose(fts.data_matrix[2], sig3.values)
         np.testing.assert_allclose(fts.data_matrix[3], sig4.values)
 
+    def test_incompatibleFeatureVersion(self):
+        s = self.createSignature(1, 10)
+        fts = FeatureSet_Discrete()
+        fts.feature_vector_version = '0.0'
+        self.assertRaises(ValueError, fts.AddSignature, s, 1)
 
     def test_fisherFeatureWeights(self):
         sig1, sig2, sig3, sig4 = self.createSignatures()
