@@ -517,13 +517,19 @@ def createClassifierTagSet(conn, classifierName, instanceName, labels,
 
 def getClassifierTagSet(classifierName, instanceName, project):
     ns = classifierName + '/' + instanceName
-    for ann in project.listAnnotations():
-        if ann.getNs() == omero.constants.metadata.NSINSIGHTTAGSET and \
-                ann.getValue() == ns and \
-                isinstance(ann, omero.gateway.TagAnnotationWrapper):
-            return ann
+    anns = [a for a in project.listAnnotations() if \
+                a.getNs() == omero.constants.metadata.NSINSIGHTTAGSET and \
+                a.getValue() == ns and \
+                isinstance(a, omero.gateway.TagAnnotationWrapper)]
 
-    return None
+    if len(anns) == 1:
+        return anns[0]
+
+    if not anns:
+        return None
+
+    raise PychrmStorageError(
+        'Multiple tagsets attached to Project:%d' % project.getId())
 
 
 ######################################################################

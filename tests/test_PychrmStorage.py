@@ -410,15 +410,53 @@ class TestAnnotations(ClientHelper):
         self.delete('/Project', pid)
         # Note this should also delete the tag
 
-    @unittest.skip("TODO: Implement")
     def test_createClassifierTagSet(self):
+        classifierName = 'createClassifierTagSet'
+        instanceName = str(uuid.uuid1())
+        labels = ['A', 'B']
         PychrmStorage.createClassifierTagSet(
-            conn, classifierName, instanceName, labels, project)
+            self.conn, classifierName, instanceName, labels)
 
-    @unittest.skip("TODO: Implement")
+        tagset = list(self.conn.getObjects('TagAnnotation', attributes={
+                    'textValue': classifierName + '/' + instanceName,
+                    'ns': omero.constants.metadata.NSINSIGHTTAGSET}))
+        self.assertEqual(len(tagset), 1)
+        tagset = tagset[0]
+
+        tags = list(self.conn.getObjects('TagAnnotation', attributes={
+                    'ns': classifierName + '/' + instanceName}))
+        self.assertEqual(len(tags), 2)
+        self.assertEqual(sorted([t.getValue() for t in tags]), labels)
+
+        for t in tags:
+            self.assertEqual(t.getParent(), tagset)
+
+        self.delete('/Annotation', tagset.getId())
+
+    # Also tests attaching the tagset to a project
     def test_getClassifierTagSet(self):
-        PychrmStorage.getClassifierTagSet(
-            classifierName, instanceName, project)
+        pid = self.create_project('addTagTo')
+        p = self.conn.getObject('Project', pid)
+
+        classifierName = 'createClassifierTagSet'
+        instanceName = str(uuid.uuid1())
+        labels = ['A', 'B']
+        PychrmStorage.createClassifierTagSet(
+            self.conn, classifierName, instanceName, labels, p)
+
+        tagset = PychrmStorage.getClassifierTagSet(
+            classifierName, instanceName, p)
+        self.assertIsNotNone(tagset)
+        self.assertEqual(tagset.getNs(),
+                         omero.constants.metadata.NSINSIGHTTAGSET)
+
+        tags = list(self.conn.getObjects('TagAnnotation', attributes={
+                    'ns': classifierName + '/' + instanceName}))
+        self.assertEqual(len(tags), 2)
+        self.assertEqual(sorted([t.getValue() for t in tags]), labels)
+
+        for t in tags:
+            self.assertEqual(t.getParent(), tagset)
 
     @unittest.skip("TODO: Implement")
     def test_datasetGenerator(self):
