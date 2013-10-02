@@ -39,6 +39,7 @@ CLASSIFIER_LABEL_NAMESPACE = '/label'
 
 PYCHRM_NAMESPACE = '/testing/pychrm'
 CLASSIFIER_PYCHRM_NAMESPACE = CLASSIFIER_PARENT_NAMESPACE + PYCHRM_NAMESPACE
+PYCHRM_VERSION_NAMESPACE = PYCHRM_NAMESPACE + '/version'
 
 SMALLFEATURES_TABLE = '/SmallFeatureSet.h5'
 
@@ -339,6 +340,61 @@ class ClassifierTables(object):
 
 
 ######################################################################
+# Version annotations
+######################################################################
+
+def getVersionAnnotation(conn, version):
+    """
+    Get the Annotation object used to represent a particular PyChrm version,
+    or None if not found
+
+    TODO: Should we filter by user, since the owner of a TagAnnotation
+    could change the namespace without us knowing?
+    TODO: Should we allow multiple identical version tags?
+    """
+    qs = conn.getQueryService()
+
+    p = omero.sys.ParametersI()
+    p.map['ns'] = wrap(PYCHRM_VERSION_NAMESPACE)
+    p.map['v'] = wrap(version)
+    vtag = qs.findByQuery(
+        'from TagAnnotation a where a.ns=:ns and a.textValue=:v', p)
+
+    return vtag
+
+
+def createVersionAnnotation(conn, version):
+    """
+    Create the Annotation object used to represent a particular PyChrm version
+    """
+    assert(getVersionAnnotation(conn, version) is None)
+    us = conn.getUpdateService()
+
+    tag = omero.model.TagAnnotationI()
+    tag.setNs(wrap(PYCHRM_VERSION_NAMESPACE))
+    tag.setTextValue(wrap(version))
+    tag = us.saveAndReturnObject(tag)
+    return tag
+
+
+def getVersion(conn, objType, objId):
+    """
+    Get the PyCHRM version associated with an object
+    """
+    obj = conn.getObject(objType, objId)
+    anns = list(obj.listAnnotations(PYCHRM_VERSION_NAMESPACE))
+    if len(anns) == 1:
+        return anns[0]
+    if not anns:
+        return None
+
+    raise PychrmStorageError(
+        'Multiple versions attached to %s:%d' % (objType, objId))
+
+
+
+
+######################################################################
 # Annotations
 ######################################################################
 
@@ -362,14 +418,10 @@ def addFileAnnotationTo(tc, obj):
     fa.setNs(wrap(PYCHRM_NAMESPACE))
     fa.setDescription(wrap(PYCHRM_NAMESPACE + ':' + tfile.getName().val))
 
-    if oclass == 'Dataset':
-        annLink = omero.model.DatasetAnnotationLinkI()
-        annLink.link(omero.model.DatasetI(obj.getId(), False), fa)
-    elif oclass == 'Project':
-        annLink = omero.model.ProjectAnnotationLinkI()
-        annLink.link(omero.model.ProjectI(obj.getId(), False), fa)
-    else:
-        raise PychrmStorageError('Unexpected object type: %s' % oclass)
+    objClass = getattr(omero.model, oclass + 'I')
+    linkClass = getattr(omero.model, oclass + 'AnnotationLinkI')
+    annLink = linkClass()
+    annLink.link(objClass(obj.getId(), False), fa)
 
     annLink = tc.conn.getUpdateService().saveAndReturnObject(annLink)
     return 'Attached file id:%d to %s id:%d\n' % \
@@ -400,17 +452,10 @@ def addCommentTo(conn, comment, objType, objId):
     ca.setNs(wrap(PYCHRM_NAMESPACE))
     ca.setTextValue(wrap(comment))
 
-    if objType == "Dataset":
-        annLink = omero.model.DatasetAnnotationLinkI()
-        annLink.link(omero.model.DatasetI(objId, False), ca)
-    elif objType == "Project":
-        annLink = omero.model.ProjectAnnotationLinkI()
-        annLink.link(omero.model.ProjectI(objId, False), ca)
-    elif objType == "Image":
-        annLink = omero.model.ImageAnnotationLinkI()
-        annLink.link(omero.model.ImageI(objId, False), ca)
-    else:
-        raise PychrmStorageError('Unexpected object type: %s' % objType)
+    objClass = getattr(omero.model, objType + 'I')
+    linkClass = getattr(omero.model, objType + 'AnnotationLinkI')
+    annLink = linkClass()
+    annLink.link(objClass(objId, False), ca)
 
     annLink = conn.getUpdateService().saveAndReturnObject(annLink)
     return 'Attached comment to %s id:%d\n' % (objType, objId)
@@ -426,17 +471,10 @@ def addTagTo(conn, tag, objType, objId):
                 unwrap(tag.getId()) == a.getId():
             return 'Already tagged %s id:%d\n' % (objType, objId)
 
-    if objType == "Dataset":
-        annLink = omero.model.DatasetAnnotationLinkI()
-        annLink.link(omero.model.DatasetI(objId, False), tag)
-    elif objType == "Project":
-        annLink = omero.model.ProjectAnnotationLinkI()
-        annLink.link(omero.model.ProjectI(objId, False), tag)
-    elif objType == "Image":
-        annLink = omero.model.ImageAnnotationLinkI()
-        annLink.link(omero.model.ImageI(objId, False), tag)
-    else:
-        raise PychrmStorageError('Unexpected object type: %s' % objType)
+    objClass = getattr(omero.model, objType + 'I')
+    linkClass = getattr(omero.model, objType + 'AnnotationLinkI')
+    annLink = linkClass()
+    annLink.link(objClass(objId, False), tag)
 
     annLink = conn.getUpdateService().saveAndReturnObject(annLink)
     return 'Attached tag to %s id:%d\n' % (objType, objId)

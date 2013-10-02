@@ -30,7 +30,7 @@ else:
 
 import uuid
 import omero
-
+from omero.rtypes import wrap, unwrap
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'OmeroPychrm'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
@@ -270,29 +270,157 @@ class TestClassifierTables(ClientHelper):
         self.assertEqual(data['classNames'], ['Cat', 'Hedgehog'])
 
 
-@unittest.skip("TODO: Implement")
 class TestAnnotations(ClientHelper):
+    class Tc:
+        def __init__(self, conn):
+            self.conn = conn
+            self.tableName = '/test.h5'
+            self.table = self.conn.getSharedResources().newTable(
+                0, self.tableName)
+            self.table.initialize([omero.grid.LongColumn('lc')])
+
+        def close(self):
+            self.table.close()
+
+    def setUp(self):
+        super(TestAnnotations, self).setUp()
+        self.conn = omero.gateway.BlitzGateway(client_obj=self.cli)
+
+    def create_project(self, name):
+        p = omero.model.ProjectI()
+        p.setName(wrap(name))
+        p = self.sess.getUpdateService().saveAndReturnObject(p)
+        return unwrap(p.getId())
+
+    def create_tag(self, name):
+        t = omero.model.TagAnnotationI()
+        t.setTextValue(wrap(name))
+        t = self.sess.getUpdateService().saveAndReturnObject(t)
+        return unwrap(t.getId())
+
+    def create_table(self):
+        t = self.sess.sharedResources().newTable(0, '/test.h5')
+        t.initialize([omero.grid.LongColumn('lc')])
+        t.close()
+        return unwrap(t.getOriginalFile().getId())
+
+    def delete(self, delType, objId):
+        ds = self.sess.getDeleteService()
+        dc = omero.api.delete.DeleteCommand(delType, objId, None)
+        dh = ds.queueDelete([dc])
+        cb = omero.callbacks.DeleteCallbackI(self.cli, dh)
+        try:
+            try:
+                cb.loop(10, 500)
+            except omero.LockTimeout:
+                print "Not finished in 5 seconds. Cancelling..."
+                if not dh.cancel():
+                    print "ERROR: Failed to cancel"
+
+            r = dh.report()[0]
+            #print "Report:error=%s,warning=%s,deleted=%s" % (
+            #    r.error, r.warning, r.actualDeletes)
+        finally:
+            pass
+        #cb.close()
+
+
+    #def test_getVersionAnnotation(self):
+    #def test_createVersionAnnotation(self):
+    #def test_getVersion(self):
+    def test_versionAnnotation(self):
+        version = str(uuid.uuid1())
+        created = PychrmStorage.createVersionAnnotation(self.conn, version)
+        retrieved = PychrmStorage.getVersionAnnotation(self.conn, version)
+
+        self.assertEqual(unwrap(created.getNs()),
+                         PychrmStorage.PYCHRM_VERSION_NAMESPACE)
+        self.assertEqual(unwrap(created.getTextValue()), version)
+        self.assertEqual(unwrap(retrieved.getNs()),
+                         PychrmStorage.PYCHRM_VERSION_NAMESPACE)
+        self.assertEqual(unwrap(retrieved.getTextValue()), version)
+
+        pid = self.create_project('versionAnnotation')
+        self.assertIsNone(PychrmStorage.getVersion(self.conn, 'Project', pid))
+
+        PychrmStorage.addTagTo(self.conn, retrieved, 'Project', pid)
+        a = PychrmStorage.getVersion(self.conn, 'Project', pid)
+        self.assertEqual(unwrap(a.getNs()),
+                         PychrmStorage.PYCHRM_VERSION_NAMESPACE)
+        self.assertEqual(unwrap(a.getTextValue()), version)
+
+        self.delete('/Project', pid)
+        self.delete('/Annotation', unwrap(retrieved.getId()))
+        # Note this should also delete the tag
 
     def test_addFileAnnotationTo(self):
-        PychrmStorage.addFileAnnotationTo(tc, obj)
+        pid = self.create_project('addFileAnnotationTo')
+        p = self.conn.getObject('Project', pid)
+        tc = self.Tc(self.conn)
+        fid = unwrap(tc.table.getOriginalFile().getId())
+        PychrmStorage.addFileAnnotationTo(tc, p)
+
+        proj = self.conn.getObject('Project', pid)
+        a = proj.getAnnotation()
+        self.assertIsInstance(a._obj, omero.model.FileAnnotation)
+        self.assertEqual(unwrap(a.getFile().getId()), fid)
+
+        tc.close()
+        self.delete('/Project', pid)
 
     def test_getAttachedTableFile(self):
-        PychrmStorage.getAttachedTableFile(tc, obj)
+        pid = self.create_project('addFileAnnotationTo')
+        p = self.conn.getObject('Project', pid)
+        tc = self.Tc(self.conn)
+        fid = unwrap(tc.table.getOriginalFile().getId())
+
+        self.assertIsNone(PychrmStorage.getAttachedTableFile(tc, p))
+
+        PychrmStorage.addFileAnnotationTo(tc, p)
+        self.assertIsNotNone(PychrmStorage.getAttachedTableFile(tc, p))
+
+        tc.close()
+        self.delete('/Project', pid)
 
     def test_addCommentTo(self):
-        PychrmStorage.addCommentTo(conn, comment, objType, objId)
+        pid = self.create_project('addCommentTo')
+        txt = 'This is a comment'
+        PychrmStorage.addCommentTo(self.conn, txt, 'Project', pid)
+
+        proj = self.conn.getObject('Project', pid)
+        a = proj.getAnnotation()
+        self.assertIsInstance(a._obj, omero.model.CommentAnnotation)
+        self.assertEqual(unwrap(a.getTextValue()), txt)
+
+        self.delete('/Project', pid)
 
     def test_addTagTo(self):
-        PychrmStorage.addTagTo(conn, tag, objType, objId)
+        pid = self.create_project('addTagTo')
+        txt = 'This is a tag'
+        tid = self.create_tag(txt)
+        tag = omero.model.TagAnnotationI(tid, False)
+        PychrmStorage.addTagTo(self.conn, tag, 'Project', pid)
 
+        proj = self.conn.getObject('Project', pid)
+        a = proj.getAnnotation()
+        self.assertIsInstance(a._obj, omero.model.TagAnnotation)
+        self.assertEqual(unwrap(a.getTextValue()), txt)
+        self.assertEqual(unwrap(a.getId()), tid)
+
+        self.delete('/Project', pid)
+        # Note this should also delete the tag
+
+    @unittest.skip("TODO: Implement")
     def test_createClassifierTagSet(self):
         PychrmStorage.createClassifierTagSet(
             conn, classifierName, instanceName, labels, project)
 
+    @unittest.skip("TODO: Implement")
     def test_getClassifierTagSet(self):
         PychrmStorage.getClassifierTagSet(
             classifierName, instanceName, project)
 
+    @unittest.skip("TODO: Implement")
     def test_datasetGenerator(self):
         PychrmStorage.datasetGenerator(conn, dataType, ids)
 
