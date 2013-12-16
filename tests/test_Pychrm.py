@@ -116,7 +116,7 @@ class TestPychrm(unittest.TestCase):
         self.assertEqual(len(fts.data_list), 2)
         self.assertIsNone(fts.data_list[0])
         #self.assertSequenceEqual
-        np.testing.assert_allclose(fts.data_list[1], sig3.values)
+        np.testing.assert_almost_equal(fts.data_list[1], sig3.values)
 
         self.assertEqual(fts.classsizes_list, [0, 1])
         self.assertEqual(fts.classnames_list, ['UNKNOWN1', 'UNKNOWN2'])
@@ -127,8 +127,8 @@ class TestPychrm(unittest.TestCase):
         self.assertEqual(fts.num_features, 2)
         self.assertEqual(fts.num_images, 2)
         self.assertEqual(len(fts.data_list), 2)
-        np.testing.assert_allclose(fts.data_list[0], sig1.values)
-        np.testing.assert_allclose(fts.data_list[1], sig3.values)
+        np.testing.assert_almost_equal(fts.data_list[0], sig1.values)
+        np.testing.assert_almost_equal(fts.data_list[1], sig3.values)
 
         self.assertEqual(fts.classsizes_list, [1, 1])
         self.assertEqual(fts.classnames_list, ['UNKNOWN1', 'UNKNOWN2'])
@@ -143,10 +143,10 @@ class TestPychrm(unittest.TestCase):
 
         tmp = fts.ContiguousDataMatrix()
         self.assertEqual(fts.data_matrix.shape, (4, 2))
-        np.testing.assert_allclose(fts.data_matrix[0], sig1.values)
-        np.testing.assert_allclose(fts.data_matrix[1], sig2.values)
-        np.testing.assert_allclose(fts.data_matrix[2], sig3.values)
-        np.testing.assert_allclose(fts.data_matrix[3], sig4.values)
+        np.testing.assert_almost_equal(fts.data_matrix[0], sig1.values)
+        np.testing.assert_almost_equal(fts.data_matrix[1], sig2.values)
+        np.testing.assert_almost_equal(fts.data_matrix[2], sig3.values)
+        np.testing.assert_almost_equal(fts.data_matrix[3], sig4.values)
 
     def test_incompatibleFeatureVersion(self):
         s = self.createSignature(1, 10)
@@ -224,10 +224,10 @@ class TestPychrm(unittest.TestCase):
         pred = DiscreteBatchClassificationResult.New(trainFts, testFts, weights)
         self.assertEqual(len(pred.individual_results), 2)
         r1, r2 = pred.individual_results
-        np.testing.assert_allclose(r1.marginal_probabilities, [0.975, 0.025],
-                                   atol=1e-3)
-        np.testing.assert_allclose(r2.marginal_probabilities, [0.025, 0.975],
-                                   atol=1e-3)
+        np.testing.assert_almost_equal(
+            r1.marginal_probabilities, [0.975, 0.025], decimal=3)
+        np.testing.assert_almost_equal(
+            r2.marginal_probabilities, [0.025, 0.975], decimal=3)
 
         weights = FisherFeatureWeights()
         weights.names = ['ft [0]', 'ft [1]']
@@ -236,10 +236,10 @@ class TestPychrm(unittest.TestCase):
         pred = DiscreteBatchClassificationResult.New(trainFts, testFts, weights)
         self.assertEqual(len(pred.individual_results), 2)
         r1, r2 = pred.individual_results
-        np.testing.assert_allclose(r1.marginal_probabilities, [0.025, 0.975],
-                                   atol=1e-3)
-        np.testing.assert_allclose(r2.marginal_probabilities, [0.975, 0.025],
-                                   atol=1e-3)
+        np.testing.assert_almost_equal(
+            r1.marginal_probabilities, [0.025, 0.975], decimal=3)
+        np.testing.assert_almost_equal(
+            r2.marginal_probabilities, [0.975, 0.025], decimal=3)
 
 
 
