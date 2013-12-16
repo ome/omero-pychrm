@@ -169,7 +169,7 @@ class TestPychrm(unittest.TestCase):
 
         wts = FisherFeatureWeights.NewFromFeatureSet(fts)
 
-        map( self.assertAlmostEqual, wts.values, [4.0, 0.0] )
+        np.testing.assert_almost_equal(wts.values, [4.0, 0.0])
         self.assertEqual(wts.names, ['ft [0]', 'ft [1]'])
 
     def test_thresholdWeights(self):
