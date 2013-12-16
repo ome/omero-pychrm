@@ -21,12 +21,18 @@
 
 #
 #
-import unittest
+
+import sys
+if sys.version_info < (2, 7):
+    import unittest2 as unittest
+else:
+    import unittest
+
 import omero
 from omero.rtypes import unwrap
 import collections
 
-import sys, os
+import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'OmeroPychrm'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
