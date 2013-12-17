@@ -21,12 +21,18 @@
 
 #
 #
-import unittest
+
+import sys
+if sys.version_info < (2, 7):
+    import unittest2 as unittest
+else:
+    import unittest
+
 import omero
 from omero.rtypes import unwrap
 import collections
 
-import sys, os
+import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'OmeroPychrm'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
@@ -204,6 +210,13 @@ class TestFeatureTableConnection(ClientHelper):
         xs = ftc.readSubArray(can, 0, 4)
         self.assertEqual(xs[0].values, [[], [1., 3.], [4., 6.], []])
         self.assertEqual(xs[1].values, [[7.], [], [8.], []])
+
+    @unittest.skipIf(not hasattr(collections, 'OrderedDict'),
+                     "OrderedDict not available in Python < 2.7")
+    def test_readSubArray_ordered(self):
+        tid = self.create_table_with_data()
+        ftc = FeatureTableConnection(client=self.cli, tableName=self.tableName)
+        ftc.openTable(tid)
 
         can = collections.OrderedDict([(2, [0]), (1, [0,2])])
         xs = ftc.readSubArray(can, 0, 4)
