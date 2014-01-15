@@ -163,6 +163,13 @@ def addToFeatureSet(ftb, ds, fts, classId):
         #message += extractFeatures(tc, d, im = image) + '\n'
 
         sig = pychrm.FeatureSet.Signatures()
+        # Versioning exists to account for the years of legacy features
+        # that were calculated using buggy algorithms
+        # Anything calculated after this point in time is major version 2
+        # Minor version .0 refers to the fact that the features being loaded
+        # aren't necessarily part of a recognized set of features
+        sig.version = '2.0'
+
         (sig.names, sig.values) = ftb.loadFeatures(imId)
         #sig.source_file = image.getName()
         sig.source_file = str(imId)
@@ -236,9 +243,8 @@ def runScript():
     """
 
     client = scripts.client(
-        'Pychrm_Build_Classifier.py',
-        'Build a classifier from features calculated over two or more ' +
-        'datasets, each dataset represents a different class',
+        'Pychrm_Predict.py',
+        'Tag images based on their classification result',
 
         scripts.String('Data_Type', optional=False, grouping='1',
                        description='The source data to be predicted.',
