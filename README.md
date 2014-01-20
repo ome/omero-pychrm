@@ -3,17 +3,26 @@ omero-pychrm
 
 Scripts for using Pychrm in `OMERO http://www.openmicroscopy.org/`.
 
-This requires `PyCHRM http://code.google.com/p/wnd-charm/wiki/InstallingPyChrm`,
-the `WND-CHRM https://code.google.com/p/wnd-charm/` Python wrapper, to be
-installed, for example:
+This requires `PyCHRM https://github.com/wnd-charm/wnd-charm/` (part of the
+WND-CHRM package) to be installed. You may wish to create and enter a
+virtualenv before doing so. At present it is not possible to install Pychrm
+using pip, so you should build from source:
 
-    pip install svn+http://wnd-charm.googlecode.com/svn/pychrm/trunk/@675#egg=pychrm
-    pip install git+git://github.com/manics/omero-pychrm.git@cleanup_10583#egg=OmeroPychrm
+    git clone https://github.com/wnd-charm/wnd-charm.git
+    cd wnd-charm
+    python setup.py install
 
-Note: in theory running just the second command should automatically pull in
-Pychrm as a dependency, however at present this installs Pychrm in editable
-mode. Running the first command on its own doesn't have this problem.
+Although OmeroPychrm can be installed using pip:
 
-Note: The above version of pychrm doesn't work with OmeroPychrm due to recent
-changes.
+    pip install git+git://github.com/manics/omero-pychrm.git
 
+The scripts for using WND-CHRM in OMERO are also in the same Github source
+repository so you still need to clone it:
+
+    git clone https://github.com/manics/omero-pychrm.git
+    cd omero-pychrm
+    python setup.py install
+
+Copy the scripts into the OMERO.server script directory:
+
+    cp -r scripts OMERO_SERVER/lib/scripts/pychrm
