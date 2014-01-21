@@ -25,4 +25,4 @@ repository so you still need to clone it:
 
 Copy the scripts into the OMERO.server script directory:
 
-    cp -r scripts OMERO_SERVER/lib/scripts/pychrm
+    cp -r scripts OMERO_SERVER/lib/scripts/wnd-charm
