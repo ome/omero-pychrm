@@ -305,24 +305,16 @@ class TestAnnotations(ClientHelper):
         return unwrap(t.getOriginalFile().getId())
 
     def delete(self, delType, objId):
-        ds = self.sess.getDeleteService()
-        dc = omero.api.delete.DeleteCommand(delType, objId, None)
-        dh = ds.queueDelete([dc])
-        cb = omero.callbacks.DeleteCallbackI(self.cli, dh)
+        handle = self.conn.deleteObjects(delType, [objId], True, True)
         try:
-            try:
-                cb.loop(10, 500)
-            except omero.LockTimeout:
-                print "Not finished in 5 seconds. Cancelling..."
-                if not dh.cancel():
-                    print "ERROR: Failed to cancel"
-
-            r = dh.report()[0]
-            #print "Report:error=%s,warning=%s,deleted=%s" % (
-            #    r.error, r.warning, r.actualDeletes)
+            self.conn._waitOnCmd(handle)
+            rs = handle.getResponse().responses
+            self.assertEqual(len(rs), 1)
+            if rs[0].scheduledDeletes != rs[0].actualDeletes:
+                print 'Deletes scheduled:%d actual:%d' % (
+                    rs[0].scheduledDeletes, rs[0].actualDeletes)
         finally:
-            pass
-        #cb.close()
+            handle.close()
 
 
     #def test_getVersionAnnotation(self):
@@ -350,7 +342,6 @@ class TestAnnotations(ClientHelper):
         self.assertEqual(unwrap(a.getTextValue()), version)
 
         self.delete('/Project', pid)
-        self.delete('/Annotation', unwrap(retrieved.getId()))
         # Note this should also delete the tag
 
     def test_addFileAnnotationTo(self):
@@ -457,6 +448,8 @@ class TestAnnotations(ClientHelper):
 
         for t in tags:
             self.assertEqual(t.getParent(), tagset)
+
+        self.delete('/Project', pid)
 
     @unittest.skip("TODO: Implement")
     def test_datasetGenerator(self):
