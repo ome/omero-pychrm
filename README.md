@@ -10,7 +10,11 @@ using pip, so you should build from source:
 
     git clone https://github.com/wnd-charm/wnd-charm.git
     cd wnd-charm
+    python setup.py build
     python setup.py install
+
+Note due to a `bug https://github.com/wnd-charm/wnd-charm/issues/11` setup.py
+must be run twice.
 
 Although OmeroPychrm can be installed using pip:
 
