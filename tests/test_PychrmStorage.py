@@ -58,6 +58,10 @@ class ClientHelper(unittest.TestCase):
         self.cli.closeSession()
 
 
+def unwrapVersion(vertag):
+    return unwrap(vertag.getTextValue())
+
+
 class TestFeatures(object):
     def __init__(self, inc = 0):
         self.names = ['a [0]', 'a [1]', 'b [0]']
@@ -87,11 +91,16 @@ class TestPychrmStorage(unittest.TestCase):
 
 class TestFeatureTable(ClientHelper):
 
+    def setUp(self):
+        super(TestFeatureTable, self).setUp()
+        self.version = '12.345'
+        self.otherversion = '54.321'
+
     def create_table(self):
         cli, sess = self.create_client()
         ft = FeatureTable(client=cli, tableName=self.tableName)
         fts = ['a [0]', 'a [1]', 'b [0]']
-        ft.createTable(fts)
+        ft.createTable(fts, version=self.version)
         tid = ft.tc.tableId
         ft.close()
         return tid
@@ -100,7 +109,7 @@ class TestFeatureTable(ClientHelper):
         cli, sess = self.create_client()
         ft = FeatureTable(client=cli, tableName=self.tableName)
         fts = ['a [0]', 'a [1]', 'b [0]']
-        ft.createTable(fts)
+        ft.createTable(fts, version=self.version)
 
         cols = ft.tc.getHeaders()
         cols[0].values = [7, 8]
@@ -117,6 +126,7 @@ class TestFeatureTable(ClientHelper):
         tid = self.create_table()
         ft = FeatureTable(client=self.cli, tableName=self.tableName)
         ft.openTable(tid)
+        self.assertEqual(self.version, unwrapVersion(ft.versiontag))
 
         headers = ft.tc.getHeaders()
         self.assertEqual(len(headers), 3)
@@ -124,12 +134,23 @@ class TestFeatureTable(ClientHelper):
         self.assertEqual([h.size for h in headers[1:]], [2, 1])
 
     def test_openTable(self):
-        self.test_createTable()
+        # The any version is handled by test_createTable() so just test the
+        # specific version
+        tid = self.create_table()
+        ft = FeatureTable(client=self.cli, tableName=self.tableName)
+        ft.openTable(tid)
+        self.assertEqual(self.version, unwrapVersion(ft.versiontag))
+        ft.close()
+
+        ft = FeatureTable(client=self.cli, tableName=self.tableName)
+        self.assertRaises(
+            PychrmStorage.PychrmStorageError, ft.openTable,
+            tid, self.otherversion)
 
     def test_isTableCompatible(self):
         tid = self.create_table()
         ft = FeatureTable(client=self.cli, tableName=self.tableName)
-        t = ft.openTable(tid)
+        t = ft.openTable(tid, self.version)
 
         fts = TestFeatures()
         self.assertTrue(ft.isTableCompatible(fts))
@@ -187,6 +208,9 @@ class TestClassifierTables(ClientHelper):
         self.tableNameF = '/test_PychrmStorage/ClassFeatures.h5'
         self.tableNameW = '/test_PychrmStorage/Weights.h5'
         self.tableNameL = '/test_PychrmStorage/ClassLabels.h5'
+        self.version = '12.345'
+        self.otherversion = '54.321'
+
 
     def create_classifierTables(self):
         cli, sess = self.create_client()
@@ -195,26 +219,57 @@ class TestClassifierTables(ClientHelper):
         return ct
 
 
-    def test_createClassifierTables(self):
-        ct = self.create_classifierTables()
-        fts = TestFeatures()
-        ct.createClassifierTables(fts.names)
+    def checkEmptyClassifierTables(self, ct):
+        self.assertEqual(unwrapVersion(ct.versiontag), self.version)
 
         headers = ct.tcF.getHeaders()
         self.assertEqual([h.name for h in headers],
                          ['id', 'label', 'features'])
+        verF = PychrmStorage.getVersion(
+            ct.tcF.conn, 'OriginalFile', ct.tcF.tableId)
+        self.assertEqual(unwrapVersion(verF), self.version)
 
         headers = ct.tcW.getHeaders()
         self.assertEqual([h.name for h in headers], ['featurename', 'weight'])
+        verW = PychrmStorage.getVersion(
+            ct.tcW.conn, 'OriginalFile', ct.tcW.tableId)
+        self.assertEqual(unwrapVersion(verW), self.version)
 
         headers = ct.tcL.getHeaders()
         self.assertEqual([h.name for h in headers], ['classID', 'className'])
+        verL = PychrmStorage.getVersion(
+            ct.tcL.conn, 'OriginalFile', ct.tcL.tableId)
+        self.assertEqual(unwrapVersion(verL), self.version)
+
+
+    def test_openTables(self):
+        ct = self.create_classifierTables()
+        fts = TestFeatures()
+        ct.createClassifierTables(fts.names, self.version)
+        tidF, tidW, tidL = ct.tcF.tableId, ct.tcW.tableId, ct.tcL.tableId
+        ct.close()
+
+        ct = self.create_classifierTables()
+        ct.openTables(tidF, tidW, tidL)
+        self.checkEmptyClassifierTables(ct)
+        ct.close()
+
+        ct = self.create_classifierTables()
+        self.assertRaises(
+            PychrmStorage.PychrmStorageError, ct.openTables, tidF, tidW, tidL,
+            self.otherversion)
+
+    def test_createClassifierTables(self):
+        ct = self.create_classifierTables()
+        fts = TestFeatures()
+        ct.createClassifierTables(fts.names, self.version)
+        self.checkEmptyClassifierTables(ct)
 
     def test_saveClassifierTables(self):
         ct = self.create_classifierTables()
         fts0 = TestFeatures()
         fts1 = TestFeatures(10)
-        ct.createClassifierTables(fts0.names)
+        ct.createClassifierTables(fts0.names, self.version)
 
         ids = [7, 8]
         classIds = [1, 0]
@@ -247,7 +302,7 @@ class TestClassifierTables(ClientHelper):
         ct = self.create_classifierTables()
         fts0 = TestFeatures()
         fts1 = TestFeatures(10)
-        ct.createClassifierTables(fts0.names)
+        ct.createClassifierTables(fts0.names, self.version)
 
         ids = [7, 8]
         classIds = [1, 0]
@@ -285,6 +340,7 @@ class TestAnnotations(ClientHelper):
     def setUp(self):
         super(TestAnnotations, self).setUp()
         self.conn = omero.gateway.BlitzGateway(client_obj=self.cli)
+        self.version = '12.345'
 
     def create_project(self, name):
         p = omero.model.ProjectI()
@@ -327,10 +383,10 @@ class TestAnnotations(ClientHelper):
 
         self.assertEqual(unwrap(created.getNs()),
                          PychrmStorage.PYCHRM_VERSION_NAMESPACE)
-        self.assertEqual(unwrap(created.getTextValue()), version)
+        self.assertEqual(unwrapVersion(created), version)
         self.assertEqual(unwrap(retrieved.getNs()),
                          PychrmStorage.PYCHRM_VERSION_NAMESPACE)
-        self.assertEqual(unwrap(retrieved.getTextValue()), version)
+        self.assertEqual(unwrapVersion(retrieved), version)
 
         pid = self.create_project('versionAnnotation')
         self.assertIsNone(PychrmStorage.getVersion(self.conn, 'Project', pid))
@@ -339,10 +395,29 @@ class TestAnnotations(ClientHelper):
         a = PychrmStorage.getVersion(self.conn, 'Project', pid)
         self.assertEqual(unwrap(a.getNs()),
                          PychrmStorage.PYCHRM_VERSION_NAMESPACE)
-        self.assertEqual(unwrap(a.getTextValue()), version)
+        self.assertEqual(unwrapVersion(a), version)
 
         self.delete('/Project', pid)
         # Note this should also delete the tag
+
+    def test_assertVersionMatch(self):
+        class MockVersion:
+            def __init__(self, version):
+                self.version = version
+
+            def getTextValue(self):
+                return self.version
+
+        v1 = MockVersion('12.345')
+        v2 = MockVersion('12.345')
+        v3 = MockVersion('543.21')
+
+        PychrmStorage.assertVersionMatch(v1, v2)
+        PychrmStorage.assertVersionMatch(v1, v2.getTextValue())
+        PychrmStorage.assertVersionMatch(v1.getTextValue(), v2)
+        self.assertRaises(
+            PychrmStorage.PychrmStorageError, PychrmStorage.assertVersionMatch,
+            v1, v3)
 
     def test_addFileAnnotationTo(self):
         pid = self.create_project('addFileAnnotationTo')
