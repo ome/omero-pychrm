@@ -102,9 +102,9 @@ def featureSizes(names):
 
 
 class FeatureTable(object):
-    #def connFeatureTable(client, tableName):
     def __init__(self, client, tableName):
         self.tc = FeatureTableConnection(client=client, tableName=tableName)
+        self.versiontag = None
 
     def close(self):
         self.tc.close(False)
@@ -114,7 +114,7 @@ class FeatureTable(object):
         return self.tc.conn
 
 
-    def createTable(self, featureNames):
+    def createTable(self, featureNames, version):
         """
         Initialise an OMERO.table for storing features
         @param featureNames Either a mapping of feature names to feature sizes,
@@ -131,10 +131,21 @@ class FeatureTable(object):
         desc = [(name, features[name]) for name in colNames]
         self.tc.createNewTable('id', desc)
 
+        self.versiontag = getVersionAnnotation(self.conn, version)
+        if not self.versiontag:
+            self.versiontag = createVersionAnnotation(self.conn, version)
+        addTagTo(self.conn, self.versiontag, 'OriginalFile', self.tc.tableId)
 
-    def openTable(self, tableId):
+    def openTable(self, tableId, version=None):
         try:
+            vertag = getVersion(self.conn, 'OriginalFile', tableId)
+            if not vertag:
+                raise PychrmStorageError(
+                    'Table id %d has no version tag' % tableId)
+            if version is not None:
+                assertVersionMatch(version, vertag, 'table:%d' % tableId)
             self.tc.openTable(tableId)
+            self.versiontag = vertag
             return True
         except TableConnectionError as e:
             print "No table found: %s" % e
@@ -144,7 +155,7 @@ class FeatureTable(object):
     def isTableCompatible(self, features):
         """
         Check whether an existing table is compatible with this set of features,
-        that is whether suitable columsn exist
+        that is whether suitable columns exist
         @return true if this set of features can be stored in this table
         """
         cols = self.tc.getHeaders()
@@ -246,42 +257,71 @@ class ClassifierTables(object):
         self.tcF = TableConnection(client=client, tableName=tableNameF)
         self.tcW = TableConnection(client=client, tableName=tableNameW)
         self.tcL = TableConnection(client=client, tableName=tableNameL)
+        self.versiontag = None
 
     def close(self):
         self.tcF.close(False)
         self.tcW.close(False)
         self.tcL.close(False)
 
-    def openTables(self, tidF, tidW, tidL):
+    def openTables(self, tidF, tidW, tidL, version=None):
         try:
             self.tcF.openTable(tidF)
+            vertag = getVersion(self.tcF.conn, 'OriginalFile', self.tcF.tableId)
+            if not vertag:
+                raise PychrmStorageError(
+                    'Table id %d has no version tag' % self.tcF.tableId)
+
+            if version is not None:
+                assertVersionMatch(
+                    version, vertag, 'table:%d' % self.tcF.tableId)
+            self.versiontag = vertag
+
             self.tcW.openTable(tidW)
+            vertag = getVersion(self.tcW.conn, 'OriginalFile', self.tcW.tableId)
+            assertVersionMatch(
+                self.versiontag, vertag, 'table:%d' % self.tcW.tableId)
+
             self.tcL.openTable(tidL)
+            vertag = getVersion(self.tcL.conn, 'OriginalFile', self.tcL.tableId)
+            assertVersionMatch(
+                self.versiontag, vertag, 'table:%d' % self.tcL.tableId)
+
             return True
         except TableConnectionError as e:
             print "Failed to open one or more tables: %s" % e
             return False
 
 
-    def createClassifierTables(self, featureNames):
+    def createClassifierTables(self, featureNames, version):
+        self.versiontag = getVersionAnnotation(self.tcF.conn, version)
+        if not self.versiontag:
+            self.versiontag = createVersionAnnotation(self.tcF.conn, version)
+
         schemaF = [
             omero.grid.LongColumn('id'),
             omero.grid.LongColumn('label'),
             omero.grid.DoubleArrayColumn('features', '', len(featureNames)),
             ]
         self.tcF.newTable(schemaF)
+        addTagTo(
+            self.tcF.conn, self.versiontag, 'OriginalFile', self.tcF.tableId)
 
         schemaW = [
             omero.grid.StringColumn('featurename', '', 1024),
             omero.grid.DoubleColumn('weight'),
             ]
         self.tcW.newTable(schemaW)
+        addTagTo(
+            self.tcW.conn, self.versiontag, 'OriginalFile', self.tcW.tableId)
 
         schemaL = [
             omero.grid.LongColumn('classID'),
             omero.grid.StringColumn('className', '', 1024),
             ]
         self.tcL.newTable(schemaL)
+        addTagTo(
+            self.tcL.conn, self.versiontag, 'OriginalFile', self.tcL.tableId)
 
 
     def saveClassifierTables(self,
@@ -390,6 +430,26 @@ def getVersion(conn, objType, objId):
 
     raise PychrmStorageError(
         'Multiple versions attached to %s:%d' % (objType, objId))
+
+
+def assertVersionMatch(requiredver, actualver, source=None):
+    if source:
+        source = ' (%s)' % source
+    else:
+        source = ''
+    if requiredver is None:
+        raise PychrmStorageError('Required version must not be None')
+    if actualver is None:
+        raise PychrmStorageError('Version is None: "%s"%s' %
+                                 (actualver, source))
+
+    if not isinstance(requiredver, str):
+        requiredver = requiredver.getTextValue()
+    if not isinstance(actualver, str):
+        actualver = actualver.getTextValue()
+    if requiredver != actualver:
+        raise PychrmStorageError('Required version "%s", got version "%s"%s' %
+                                 (requiredver, actualver, source))
 
 
 
