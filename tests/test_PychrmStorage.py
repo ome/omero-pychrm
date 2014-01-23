@@ -53,9 +53,22 @@ class ClientHelper(unittest.TestCase):
         """
         self.cli, self.sess = self.create_client()
         self.tableName = '/test_PychrmStorage/test.h5'
+        self.conn = omero.gateway.BlitzGateway(client_obj=self.cli)
 
     def tearDown(self):
         self.cli.closeSession()
+
+    def delete(self, delType, objId):
+        handle = self.conn.deleteObjects(delType, [objId], True, True)
+        try:
+            self.conn._waitOnCmd(handle)
+            rs = handle.getResponse().responses
+            self.assertEqual(len(rs), 1)
+            if rs[0].scheduledDeletes != rs[0].actualDeletes:
+                print 'Deletes scheduled:%d actual:%d' % (
+                    rs[0].scheduledDeletes, rs[0].actualDeletes)
+        finally:
+            handle.close()
 
 
 def unwrapVersion(vertag):
@@ -128,10 +141,42 @@ class TestFeatureTable(ClientHelper):
         ft.openTable(tid)
         self.assertEqual(self.version, unwrapVersion(ft.versiontag))
 
+        vertag = PychrmStorage.getVersion(ft.conn, 'OriginalFile', tid)
+        self.assertEqual(self.version, unwrapVersion(vertag))
+
         headers = ft.tc.getHeaders()
         self.assertEqual(len(headers), 3)
         self.assertEqual([h.name for h in headers], ['id', 'a', 'b'])
         self.assertEqual([h.size for h in headers[1:]], [2, 1])
+
+    def test_annotateAndAnnotated(self):
+        # There's a bug somewhere which means annotating the table with the
+        # version annotation, then using the table as a FileAnnotation on
+        # an object, causes the version annotation to be lost
+        # Closing and reopening the table seems to work (see
+        # FeatureTable.createTable)
+        cli, sess = self.create_client()
+        ft = FeatureTable(client=cli, tableName=self.tableName)
+        fts = ['a [0]', 'a [1]', 'b [0]']
+        ft.createTable(fts, version=self.version)
+        tid = ft.tc.tableId
+
+        self.assertEqual(self.version, unwrapVersion(ft.versiontag))
+
+        vertag = PychrmStorage.getVersion(ft.conn, 'OriginalFile', tid)
+        self.assertEqual(self.version, unwrapVersion(vertag))
+
+        p = omero.model.ProjectI()
+        p.setName(wrap('tmp'))
+        p = self.sess.getUpdateService().saveAndReturnObject(p)
+        pid = unwrap(p.getId())
+        p = ft.conn.getObject('Project', pid)
+        PychrmStorage.addFileAnnotationTo(ft.tc, p)
+
+        vertag = PychrmStorage.getVersion(ft.conn, 'OriginalFile', tid)
+        self.assertEqual(self.version, unwrapVersion(vertag))
+        self.delete('/Project', pid)
+
 
     def test_openTable(self):
         # The any version is handled by test_createTable() so just test the
@@ -339,7 +384,6 @@ class TestAnnotations(ClientHelper):
 
     def setUp(self):
         super(TestAnnotations, self).setUp()
-        self.conn = omero.gateway.BlitzGateway(client_obj=self.cli)
         self.version = '12.345'
 
     def create_project(self, name):
@@ -359,18 +403,6 @@ class TestAnnotations(ClientHelper):
         t.initialize([omero.grid.LongColumn('lc')])
         t.close()
         return unwrap(t.getOriginalFile().getId())
-
-    def delete(self, delType, objId):
-        handle = self.conn.deleteObjects(delType, [objId], True, True)
-        try:
-            self.conn._waitOnCmd(handle)
-            rs = handle.getResponse().responses
-            self.assertEqual(len(rs), 1)
-            if rs[0].scheduledDeletes != rs[0].actualDeletes:
-                print 'Deletes scheduled:%d actual:%d' % (
-                    rs[0].scheduledDeletes, rs[0].actualDeletes)
-        finally:
-            handle.close()
 
 
     #def test_getVersionAnnotation(self):
