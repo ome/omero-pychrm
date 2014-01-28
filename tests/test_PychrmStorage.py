@@ -59,16 +59,28 @@ class ClientHelper(unittest.TestCase):
         self.cli.closeSession()
 
     def delete(self, delType, objId):
-        handle = self.conn.deleteObjects(delType, [objId], True, True)
+        try:
+            n = len(objId)
+        except TypeError:
+            objId = [objId]
+            n = 1
+        handle = self.conn.deleteObjects(delType, objId, True, True)
         try:
             self.conn._waitOnCmd(handle)
             rs = handle.getResponse().responses
-            self.assertEqual(len(rs), 1)
+            self.assertEqual(len(rs), n)
             if rs[0].scheduledDeletes != rs[0].actualDeletes:
                 print 'Deletes scheduled:%d actual:%d' % (
                     rs[0].scheduledDeletes, rs[0].actualDeletes)
         finally:
             handle.close()
+
+    def getObject(self, objType, objId):
+        q = 'from %s o where o.id=:id' % objType
+        p = omero.sys.ParametersI()
+        p.map['id'] = wrap(objId)
+        obj = self.conn.getQueryService().findByQuery(q, p)
+        return obj
 
 
 def unwrapVersion(vertag):
@@ -102,12 +114,38 @@ class TestPychrmStorage(unittest.TestCase):
         self.assertEqual(ftsz['c d'], 3)
 
 
-class TestFeatureTable(ClientHelper):
+class FeatureTableHelper(ClientHelper):
+
+    def setUp(self):
+        super(FeatureTableHelper, self).setUp()
+        self.version = '%d.%d' % (
+            int(uuid.uuid1().get_hex(), 16), int(uuid.uuid1().get_hex(), 16))
+        self.otherversion = '%d.%d' % (
+            int(uuid.uuid1().get_hex(), 16), int(uuid.uuid1().get_hex(), 16))
+
+    def tearDown(self):
+        handle = None
+        try:
+            qs = self.conn.getQueryService()
+            p = omero.sys.ParametersI()
+            p.map['vs'] = wrap(self.version)
+            vertags = qs.findByQuery(
+                'from TagAnnotation a where a.textValue=:vs', p)
+            if vertags:
+                handle = self.conn.deleteObjects(
+                    'Annotation', [unwrap(vertags.id)])
+                self.conn._waitOnCmd(handle)
+        finally:
+            if handle:
+                handle.close()
+
+        super(FeatureTableHelper, self).tearDown()
+
+
+class TestFeatureTable(FeatureTableHelper):
 
     def setUp(self):
         super(TestFeatureTable, self).setUp()
-        self.version = '12.345'
-        self.otherversion = '54.321'
 
     def create_table(self):
         cli, sess = self.create_client()
@@ -176,7 +214,7 @@ class TestFeatureTable(ClientHelper):
         vertag = PychrmStorage.getVersion(ft.conn, 'OriginalFile', tid)
         self.assertEqual(self.version, unwrapVersion(vertag))
         self.delete('/Project', pid)
-
+        self.delete('/OriginalFile', tid)
 
     def test_openTable(self):
         # The any version is handled by test_createTable() so just test the
@@ -246,16 +284,13 @@ class TestFeatureTable(ClientHelper):
         self.assertEqual(ids, [7, 8])
 
 
-class TestClassifierTables(ClientHelper):
+class TestClassifierTables(FeatureTableHelper):
 
     def setUp(self):
         super(TestClassifierTables, self).setUp()
         self.tableNameF = '/test_PychrmStorage/ClassFeatures.h5'
         self.tableNameW = '/test_PychrmStorage/Weights.h5'
         self.tableNameL = '/test_PychrmStorage/ClassLabels.h5'
-        self.version = '12.345'
-        self.otherversion = '54.321'
-
 
     def create_classifierTables(self):
         cli, sess = self.create_client()
@@ -529,14 +564,14 @@ class TestAnnotations(ClientHelper):
         for t in tags:
             self.assertEqual(t.getParent(), tagset)
 
-        self.delete('/Annotation', tagset.getId())
+        self.delete('/Annotation', [tagset.getId()] + [t.id for t in tags])
 
     # Also tests attaching the tagset to a project
     def test_getClassifierTagSet(self):
         pid = self.create_project('addTagTo')
         p = self.conn.getObject('Project', pid)
 
-        classifierName = 'createClassifierTagSet'
+        classifierName = 'getClassifierTagSet'
         instanceName = str(uuid.uuid1())
         labels = ['A', 'B']
         PychrmStorage.createClassifierTagSet(
@@ -556,7 +591,44 @@ class TestAnnotations(ClientHelper):
         for t in tags:
             self.assertEqual(t.getParent(), tagset)
 
+        # Delete the project and tagset but not the child tags
         self.delete('/Project', pid)
+        self.delete('/Annotation', [t.id for t in tags])
+
+    def test_deleteTags(self):
+        us = self.conn.getUpdateService()
+
+        tagSet = omero.model.TagAnnotationI()
+        classifierName = 'getClassifierTagSet'
+        instanceName = str(uuid.uuid1())
+        instanceNs = classifierName + '/' + instanceName
+
+        tagSet.setTextValue(wrap(instanceNs));
+        tagSet.setNs(wrap(omero.constants.metadata.NSINSIGHTTAGSET));
+        tagSet = us.saveAndReturnObject(tagSet);
+
+        tag = omero.model.TagAnnotationI()
+        tag.setTextValue(wrap(str(uuid.uuid1())));
+        tag.setNs(wrap(instanceNs));
+        tag = us.saveAndReturnObject(tag);
+
+        link = omero.model.AnnotationAnnotationLinkI()
+        link.setChild(tag)
+        link.setParent(tagSet)
+        link = us.saveAndReturnObject(link)
+
+        self.assertIsNotNone(self.getObject('TagAnnotation', tagSet.id))
+        self.assertIsNotNone(self.getObject('TagAnnotation', tag.id))
+        self.assertIsNotNone(self.getObject(
+                'AnnotationAnnotationLink', link.id))
+
+        PychrmStorage.deleteTags(self.conn, tagSet)
+
+        self.assertIsNone(self.getObject('TagAnnotation', tagSet.id))
+        self.assertIsNone(self.getObject('TagAnnotation', tag.id))
+        self.assertIsNone(self.getObject(
+                'AnnotationAnnotationLink', link.id))
+
 
     @unittest.skip("TODO: Implement")
     def test_datasetGenerator(self):
