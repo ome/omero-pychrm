@@ -599,6 +599,33 @@ def getClassifierTagSet(classifierName, instanceName, project):
         'Multiple tagsets attached to Project:%d' % project.getId())
 
 
+def deleteTags(conn, tagsetParent):
+    """
+    Delete a tag or tagset including child tags
+    """
+    qs = conn.getQueryService()
+
+    p = omero.sys.ParametersI()
+    p.map['pid'] = wrap(tagsetParent.id)
+    links = qs.findAllByQuery(
+        'from AnnotationAnnotationLink aal '
+        'join fetch aal.parent join fetch aal.child '
+        'where aal.parent.id=:pid', p)
+    ids = unwrap([cl.id for cl in links])
+
+    dcs = [omero.cmd.Delete('/Annotation', unwrap(cl.child.id), None)
+           for cl in links]
+    dcs.append(omero.cmd.Delete('/Annotation', unwrap(tagsetParent.id), None))
+
+    doall = omero.cmd.DoAll()
+    doall.requests = dcs
+    handle = conn.c.sf.submit(doall, conn.SERVICE_OPTS)
+    try:
+        conn._waitOnCmd(handle)
+    finally:
+        handle.close()
+
+
 ######################################################################
 # Fetching objects
 ######################################################################
