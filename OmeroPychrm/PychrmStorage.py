@@ -626,6 +626,29 @@ def deleteTags(conn, tagsetParent):
         handle.close()
 
 
+def unlinkAnnotations(conn, obj):
+    """
+    Unlink (but don't delete) any annotations on this object
+    """
+    qs = conn.getQueryService()
+    linkClass = '%sAnnotationLink' % obj.OMERO_CLASS
+
+    p = omero.sys.ParametersI()
+    p.map['pid'] = wrap(obj.id)
+    links = qs.findAllByQuery(
+        'from %s al where al.parent.id=:pid' % linkClass, p)
+    dcs = [omero.cmd.Delete('/' + linkClass, unwrap(l.id), None) for l in links]
+
+    doall = omero.cmd.DoAll()
+    doall.requests = dcs
+    handle = conn.c.sf.submit(doall, conn.SERVICE_OPTS)
+    try:
+        conn._waitOnCmd(handle)
+    finally:
+        handle.close()
+
+
+
 ######################################################################
 # Fetching objects
 ######################################################################
