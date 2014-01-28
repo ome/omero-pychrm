@@ -629,6 +629,36 @@ class TestAnnotations(ClientHelper):
         self.assertIsNone(self.getObject(
                 'AnnotationAnnotationLink', link.id))
 
+    def test_unlinkAnnotations(self):
+        us = self.conn.getUpdateService()
+
+        p = omero.model.ProjectI()
+        p.setName(wrap(str(uuid.uuid1())))
+        p = self.sess.getUpdateService().saveAndReturnObject(p)
+
+        tag = omero.model.TagAnnotationI()
+        tag.setTextValue(wrap(str(uuid.uuid1())));
+        tag = us.saveAndReturnObject(tag);
+
+        link = omero.model.ProjectAnnotationLinkI()
+        link.setChild(tag)
+        link.setParent(p)
+        link = us.saveAndReturnObject(link)
+
+        self.assertIsNotNone(self.getObject('TagAnnotation', tag.id))
+        self.assertIsNotNone(self.getObject('Project', p.id))
+        self.assertIsNotNone(self.getObject('ProjectAnnotationLink', link.id))
+
+        proj = self.conn.getObject('Project', unwrap(p.id))
+        PychrmStorage.unlinkAnnotations(self.conn, proj)
+
+        self.assertIsNotNone(self.getObject('TagAnnotation', tag.id))
+        self.assertIsNotNone(self.getObject('Project', p.id))
+        self.assertIsNone(self.getObject('ProjectAnnotationLink', link.id))
+
+        self.delete('/Project', unwrap(p.id))
+        self.delete('/Annotation', unwrap(tag.id))
+
 
     @unittest.skip("TODO: Implement")
     def test_datasetGenerator(self):
