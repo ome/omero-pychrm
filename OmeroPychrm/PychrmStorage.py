@@ -136,6 +136,13 @@ class FeatureTable(object):
             self.versiontag = createVersionAnnotation(self.conn, version)
         addTagTo(self.conn, self.versiontag, 'OriginalFile', self.tc.tableId)
 
+        # TODO: There's a bug or race condition somewhere which means this
+        # annotation may be lost. Closing and reopening the table seems to
+        # avoid this.
+        tid = self.tc.tableId
+        self.close()
+        self.openTable(tid, version)
+
     def openTable(self, tableId, version=None):
         try:
             vertag = getVersion(self.conn, 'OriginalFile', tableId)
