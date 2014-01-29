@@ -247,7 +247,7 @@ def runScript():
         message += 'Duration: %s' % str(stopTime - startTime)
 
         print message
-        client.setOutput('Message', rstring(message))
+        client.setOutput('Message', rstring(str(message)))
 
     finally:
         client.closeSession()
