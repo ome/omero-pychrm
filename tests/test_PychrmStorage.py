@@ -298,25 +298,28 @@ class TestClassifierTables(FeatureTableHelper):
                               self.tableNameL)
         return ct
 
-
     def checkEmptyClassifierTables(self, ct):
-        self.assertEqual(unwrapVersion(ct.versiontag), self.version)
-
         headers = ct.tcF.getHeaders()
         self.assertEqual([h.name for h in headers],
                          ['id', 'label', 'features'])
+
+        headers = ct.tcW.getHeaders()
+        self.assertEqual([h.name for h in headers], ['featurename', 'weight'])
+
+        headers = ct.tcL.getHeaders()
+        self.assertEqual([h.name for h in headers], ['classID', 'className'])
+
+    def checkClassifierTablesVersion(self, ct):
+        self.assertEqual(unwrapVersion(ct.versiontag), self.version)
+
         verF = PychrmStorage.getVersion(
             ct.tcF.conn, 'OriginalFile', ct.tcF.tableId)
         self.assertEqual(unwrapVersion(verF), self.version)
 
-        headers = ct.tcW.getHeaders()
-        self.assertEqual([h.name for h in headers], ['featurename', 'weight'])
         verW = PychrmStorage.getVersion(
             ct.tcW.conn, 'OriginalFile', ct.tcW.tableId)
         self.assertEqual(unwrapVersion(verW), self.version)
 
-        headers = ct.tcL.getHeaders()
-        self.assertEqual([h.name for h in headers], ['classID', 'className'])
         verL = PychrmStorage.getVersion(
             ct.tcL.conn, 'OriginalFile', ct.tcL.tableId)
         self.assertEqual(unwrapVersion(verL), self.version)
@@ -332,6 +335,7 @@ class TestClassifierTables(FeatureTableHelper):
         ct = self.create_classifierTables()
         ct.openTables(tidF, tidW, tidL)
         self.checkEmptyClassifierTables(ct)
+        self.checkClassifierTablesVersion(ct)
         ct.close()
 
         ct = self.create_classifierTables()
@@ -344,12 +348,14 @@ class TestClassifierTables(FeatureTableHelper):
         fts = TestFeatures()
         ct.createClassifierTables(fts.names, self.version)
         self.checkEmptyClassifierTables(ct)
+        self.checkClassifierTablesVersion(ct)
 
     def test_saveClassifierTables(self):
         ct = self.create_classifierTables()
         fts0 = TestFeatures()
         fts1 = TestFeatures(10)
         ct.createClassifierTables(fts0.names, self.version)
+        self.checkClassifierTablesVersion(ct)
 
         ids = [7, 8]
         classIds = [1, 0]
@@ -359,6 +365,8 @@ class TestClassifierTables(FeatureTableHelper):
         classNames = ['Cat', 'Hedgehog']
         ct.saveClassifierTables(ids, classIds, featureMatrix,
                                 featureNames, weights, classNames)
+
+        self.checkClassifierTablesVersion(ct)
 
         self.assertEqual(ct.tcF.getNumberOfRows(), 2)
         self.assertEqual(ct.tcW.getNumberOfRows(), 3)
@@ -383,6 +391,7 @@ class TestClassifierTables(FeatureTableHelper):
         fts0 = TestFeatures()
         fts1 = TestFeatures(10)
         ct.createClassifierTables(fts0.names, self.version)
+        self.checkClassifierTablesVersion(ct)
 
         ids = [7, 8]
         classIds = [1, 0]
@@ -394,6 +403,7 @@ class TestClassifierTables(FeatureTableHelper):
                                 featureNames, weights, classNames)
 
         data = ct.loadClassifierTables()
+        self.checkClassifierTablesVersion(ct)
 
         self.assertEqual(data['ids'], [7, 8])
         self.assertEqual(data['trainClassIds'], [1, 0])
