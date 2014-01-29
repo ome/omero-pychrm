@@ -632,31 +632,33 @@ class TestAnnotations(ClientHelper):
     def test_unlinkAnnotations(self):
         us = self.conn.getUpdateService()
 
-        p = omero.model.ProjectI()
-        p.setName(wrap(str(uuid.uuid1())))
-        p = self.sess.getUpdateService().saveAndReturnObject(p)
+        f = omero.model.OriginalFileI()
+        f.setName(wrap(str(uuid.uuid1())))
+        f.setPath(wrap(str(uuid.uuid1())))
+        f = self.sess.getUpdateService().saveAndReturnObject(f)
 
         tag = omero.model.TagAnnotationI()
         tag.setTextValue(wrap(str(uuid.uuid1())));
         tag = us.saveAndReturnObject(tag);
 
-        link = omero.model.ProjectAnnotationLinkI()
+        link = omero.model.OriginalFileAnnotationLinkI()
         link.setChild(tag)
-        link.setParent(p)
+        link.setParent(f)
         link = us.saveAndReturnObject(link)
 
         self.assertIsNotNone(self.getObject('TagAnnotation', tag.id))
-        self.assertIsNotNone(self.getObject('Project', p.id))
-        self.assertIsNotNone(self.getObject('ProjectAnnotationLink', link.id))
+        self.assertIsNotNone(self.getObject('OriginalFile', f.id))
+        self.assertIsNotNone(self.getObject(
+                'OriginalFileAnnotationLink', link.id))
 
-        proj = self.conn.getObject('Project', unwrap(p.id))
-        PychrmStorage.unlinkAnnotations(self.conn, proj)
+        file = self.conn.getObject('OriginalFile', unwrap(f.id))
+        PychrmStorage.unlinkAnnotations(self.conn, file)
 
         self.assertIsNotNone(self.getObject('TagAnnotation', tag.id))
-        self.assertIsNotNone(self.getObject('Project', p.id))
-        self.assertIsNone(self.getObject('ProjectAnnotationLink', link.id))
+        self.assertIsNotNone(self.getObject('OriginalFile', file.id))
+        self.assertIsNone(self.getObject('OriginalFileAnnotationLink', link.id))
 
-        self.delete('/Project', unwrap(p.id))
+        self.delete('/OriginalFile', unwrap(f.id))
         self.delete('/Annotation', unwrap(tag.id))
 
 
