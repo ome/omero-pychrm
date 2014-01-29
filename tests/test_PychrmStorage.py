@@ -429,7 +429,8 @@ class TestAnnotations(ClientHelper):
 
     def setUp(self):
         super(TestAnnotations, self).setUp()
-        self.version = '12.345'
+        self.version = '%d.%d' % (
+            int(uuid.uuid1().get_hex(), 16), int(uuid.uuid1().get_hex(), 16))
 
     def create_project(self, name):
         p = omero.model.ProjectI()
@@ -437,9 +438,11 @@ class TestAnnotations(ClientHelper):
         p = self.sess.getUpdateService().saveAndReturnObject(p)
         return unwrap(p.getId())
 
-    def create_tag(self, name):
+    def create_tag(self, name, ns=None):
         t = omero.model.TagAnnotationI()
         t.setTextValue(wrap(name))
+        if ns is not None:
+            t.setNs(wrap(ns))
         t = self.sess.getUpdateService().saveAndReturnObject(t)
         return unwrap(t.getId())
 
@@ -449,6 +452,21 @@ class TestAnnotations(ClientHelper):
         t.close()
         return unwrap(t.getOriginalFile().getId())
 
+    def test_getVersion(self):
+        version = str(uuid.uuid1())
+        tableid = self.create_table()
+        file = omero.model.OriginalFileI(tableid, False)
+        version = str(uuid.uuid1())
+        tagid = self.create_tag(version, PychrmStorage.PYCHRM_VERSION_NAMESPACE)
+        tag = omero.model.TagAnnotationI(tagid, False)
+        link = omero.model.OriginalFileAnnotationLinkI()
+        link.setChild(tag)
+        link.setParent(file)
+        link = self.sess.getUpdateService().saveAndReturnObject(link)
+
+        retrieved = PychrmStorage.getVersion(
+            self.conn, 'OriginalFile', unwrap(file.getId()))
+        self.assertEqual(unwrapVersion(retrieved), version)
 
     #def test_getVersionAnnotation(self):
     #def test_createVersionAnnotation(self):
