@@ -639,13 +639,14 @@ def unlinkAnnotations(conn, obj):
         'from %s al where al.parent.id=:pid' % linkClass, p)
     dcs = [omero.cmd.Delete('/' + linkClass, unwrap(l.id), None) for l in links]
 
-    doall = omero.cmd.DoAll()
-    doall.requests = dcs
-    handle = conn.c.sf.submit(doall, conn.SERVICE_OPTS)
-    try:
-        conn._waitOnCmd(handle)
-    finally:
-        handle.close()
+    if dcs:
+        doall = omero.cmd.DoAll()
+        doall.requests = dcs
+        handle = conn.c.sf.submit(doall, conn.SERVICE_OPTS)
+        try:
+            conn._waitOnCmd(handle)
+        finally:
+            handle.close()
 
 
 
