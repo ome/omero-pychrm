@@ -611,7 +611,6 @@ def deleteTags(conn, tagsetParent):
         'from AnnotationAnnotationLink aal '
         'join fetch aal.parent join fetch aal.child '
         'where aal.parent.id=:pid', p)
-    ids = unwrap([cl.id for cl in links])
 
     dcs = [omero.cmd.Delete('/Annotation', unwrap(cl.child.id), None)
            for cl in links]
