@@ -471,19 +471,23 @@ def addFileAnnotationTo(tc, obj):
     Attach a table as an annotation to an object (dataset/project) if not
     already attached
     """
-    tfile = tc.table.getOriginalFile()
+    # The OriginalFile may be out-of-date, which can lead to data loss, so
+    # reload it
+    #tfile = tc.table.getOriginalFile()
+    tfile = tc.conn.getObject(
+        'OriginalFile', unwrap(tc.table.getOriginalFile().getId()))
     oclass = obj.OMERO_CLASS
 
     obj = tc.conn.getObject(oclass, obj.getId())
     for a in obj.listAnnotations(PYCHRM_NAMESPACE):
         if isinstance(a, omero.gateway.FileAnnotationWrapper):
-            if tfile.getId() == a._obj.getFile().getId():
+            if tfile.getId() == unwrap(a._obj.getFile().getId()):
                 return 'Already attached'
 
     fa = omero.model.FileAnnotationI()
-    fa.setFile(tfile)
+    fa.setFile(tfile._obj)
     fa.setNs(wrap(PYCHRM_NAMESPACE))
-    fa.setDescription(wrap(PYCHRM_NAMESPACE + ':' + tfile.getName().val))
+    fa.setDescription(wrap(PYCHRM_NAMESPACE + ':' + tfile.getName()))
 
     objClass = getattr(omero.model, oclass + 'I')
     linkClass = getattr(omero.model, oclass + 'AnnotationLinkI')
@@ -492,7 +496,7 @@ def addFileAnnotationTo(tc, obj):
 
     annLink = tc.conn.getUpdateService().saveAndReturnObject(annLink)
     return 'Attached file id:%d to %s id:%d\n' % \
-        (tfile.getId().getValue(), oclass, obj.getId())
+        (tfile.getId(), oclass, obj.getId())
 
 
 def getAttachedTableFile(tc, obj):
