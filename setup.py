@@ -6,9 +6,11 @@ setup.py file for OmeroPychrm
 
 from setuptools import setup
 
+import version
+
 setup(
     name='OmeroPychrm',
-    version='0.1.0',
+    version=version.get_git_version(),
     author='Simon Li',
     author_email='spli@dundee.ac.uk',
     packages=['OmeroPychrm'],
