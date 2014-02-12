@@ -89,7 +89,7 @@ def extractFeatures(ftb, ds, newOnly, chNames, imageId = None, im = None,
         ft = Signatures.NewFromFeatureComputationPlan( pychrm_matrix, feature_plan, options )  
 
         if prefixChannel:
-            ft.names = ['[%s] %s' % (ch, n) for n in ft.names]
+            ft.names = ['[%s] %s' % (c, n) for n in ft.names]
         ft.source_path = im.getName()
         if not ftall:
             ftall = ft
