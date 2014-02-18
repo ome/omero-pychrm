@@ -24,7 +24,7 @@
 from omero import scripts
 from omero.util import script_utils
 import omero.model
-from omero.rtypes import rstring, rlong
+from omero.rtypes import rstring, rlong, unwrap
 from datetime import datetime
 from itertools import izip
 from tempfile import NamedTemporaryFile
@@ -81,7 +81,9 @@ def extractFeatures(ftb, ds, newOnly, chNames, imageId = None, im = None,
     if tid:
         if not ftb.openTable(tid):
             return message + '\nERROR: Table not opened\n'
-        message += 'Opened table id:%d\n' % tid
+        version = unwrap(ftb.versiontag.getTextValue())
+        # version seems to be in unicode
+        message += 'Opened table id:%d version:%s\n' % (tid, str(version))
 
         if newOnly and ftb.tableContainsId(imageId):
             return message + 'Image id:%d features already in table' % imageId
@@ -107,11 +109,17 @@ def extractFeatures(ftb, ds, newOnly, chNames, imageId = None, im = None,
 
     # Save the features to a table
     if not tid:
-        ftb.createTable(ftall.names)
-        message += 'Created new table\n'
+        ftb.createTable(ftall.names, ft.version)
+        version = unwrap(ftb.versiontag.getTextValue())
+        message += 'Created new table id:%d version:%s\n' % (
+            ftb.tc.tableId, version)
         message += PychrmStorage.addFileAnnotationTo(tc, ds)
 
+    if version != ft.version:
+        return message + 'Incompatible version: Stored=%s Calculated=%s' % (
+            version, ft.version)
     ftb.saveFeatures(imageId, ftall)
+
     return message + 'Extracted features from Image id:%d\n' % imageId
 
 
@@ -250,7 +258,7 @@ def runScript():
         message += 'Duration: %s' % str(stopTime - startTime)
 
         print message
-        client.setOutput('Message', rstring(message))
+        client.setOutput('Message', rstring(str(message)))
 
     finally:
         client.closeSession()

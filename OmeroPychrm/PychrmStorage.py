@@ -39,6 +39,7 @@ CLASSIFIER_LABEL_NAMESPACE = '/label'
 
 PYCHRM_NAMESPACE = '/testing/pychrm'
 CLASSIFIER_PYCHRM_NAMESPACE = CLASSIFIER_PARENT_NAMESPACE + PYCHRM_NAMESPACE
+PYCHRM_VERSION_NAMESPACE = PYCHRM_NAMESPACE + '/version'
 
 SMALLFEATURES_TABLE = '/SmallFeatureSet.h5'
 
@@ -101,9 +102,9 @@ def featureSizes(names):
 
 
 class FeatureTable(object):
-    #def connFeatureTable(client, tableName):
     def __init__(self, client, tableName):
         self.tc = FeatureTableConnection(client=client, tableName=tableName)
+        self.versiontag = None
 
     def close(self):
         self.tc.close(False)
@@ -113,7 +114,7 @@ class FeatureTable(object):
         return self.tc.conn
 
 
-    def createTable(self, featureNames):
+    def createTable(self, featureNames, version):
         """
         Initialise an OMERO.table for storing features
         @param featureNames Either a mapping of feature names to feature sizes,
@@ -130,10 +131,28 @@ class FeatureTable(object):
         desc = [(name, features[name]) for name in colNames]
         self.tc.createNewTable('id', desc)
 
+        self.versiontag = getVersionAnnotation(self.conn, version)
+        if not self.versiontag:
+            self.versiontag = createVersionAnnotation(self.conn, version)
+        addTagTo(self.conn, self.versiontag, 'OriginalFile', self.tc.tableId)
 
-    def openTable(self, tableId):
+        # TODO: There's a bug or race condition somewhere which means this
+        # annotation may be lost. Closing and reopening the table seems to
+        # avoid this.
+        tid = self.tc.tableId
+        self.close()
+        self.openTable(tid, version)
+
+    def openTable(self, tableId, version=None):
         try:
+            vertag = getVersion(self.conn, 'OriginalFile', tableId)
+            if not vertag:
+                raise PychrmStorageError(
+                    'Table id %d has no version tag' % tableId)
+            if version is not None:
+                assertVersionMatch(version, vertag, 'table:%d' % tableId)
             self.tc.openTable(tableId)
+            self.versiontag = vertag
             return True
         except TableConnectionError as e:
             print "No table found: %s" % e
@@ -143,7 +162,7 @@ class FeatureTable(object):
     def isTableCompatible(self, features):
         """
         Check whether an existing table is compatible with this set of features,
-        that is whether suitable columsn exist
+        that is whether suitable columns exist
         @return true if this set of features can be stored in this table
         """
         cols = self.tc.getHeaders()
@@ -245,42 +264,71 @@ class ClassifierTables(object):
         self.tcF = TableConnection(client=client, tableName=tableNameF)
         self.tcW = TableConnection(client=client, tableName=tableNameW)
         self.tcL = TableConnection(client=client, tableName=tableNameL)
+        self.versiontag = None
 
     def close(self):
         self.tcF.close(False)
         self.tcW.close(False)
         self.tcL.close(False)
 
-    def openTables(self, tidF, tidW, tidL):
+    def openTables(self, tidF, tidW, tidL, version=None):
         try:
             self.tcF.openTable(tidF)
+            vertag = getVersion(self.tcF.conn, 'OriginalFile', self.tcF.tableId)
+            if not vertag:
+                raise PychrmStorageError(
+                    'Table id %d has no version tag' % self.tcF.tableId)
+
+            if version is not None:
+                assertVersionMatch(
+                    version, vertag, 'table:%d' % self.tcF.tableId)
+            self.versiontag = vertag
+
             self.tcW.openTable(tidW)
+            vertag = getVersion(self.tcW.conn, 'OriginalFile', self.tcW.tableId)
+            assertVersionMatch(
+                self.versiontag, vertag, 'table:%d' % self.tcW.tableId)
+
             self.tcL.openTable(tidL)
+            vertag = getVersion(self.tcL.conn, 'OriginalFile', self.tcL.tableId)
+            assertVersionMatch(
+                self.versiontag, vertag, 'table:%d' % self.tcL.tableId)
+
             return True
         except TableConnectionError as e:
             print "Failed to open one or more tables: %s" % e
             return False
 
 
-    def createClassifierTables(self, featureNames):
+    def createClassifierTables(self, featureNames, version):
+        self.versiontag = getVersionAnnotation(self.tcF.conn, version)
+        if not self.versiontag:
+            self.versiontag = createVersionAnnotation(self.tcF.conn, version)
+
         schemaF = [
             omero.grid.LongColumn('id'),
             omero.grid.LongColumn('label'),
             omero.grid.DoubleArrayColumn('features', '', len(featureNames)),
             ]
         self.tcF.newTable(schemaF)
+        addTagTo(
+            self.tcF.conn, self.versiontag, 'OriginalFile', self.tcF.tableId)
 
         schemaW = [
             omero.grid.StringColumn('featurename', '', 1024),
             omero.grid.DoubleColumn('weight'),
             ]
         self.tcW.newTable(schemaW)
+        addTagTo(
+            self.tcW.conn, self.versiontag, 'OriginalFile', self.tcW.tableId)
 
         schemaL = [
             omero.grid.LongColumn('classID'),
             omero.grid.StringColumn('className', '', 1024),
             ]
         self.tcL.newTable(schemaL)
+        addTagTo(
+            self.tcL.conn, self.versiontag, 'OriginalFile', self.tcL.tableId)
 
 
     def saveClassifierTables(self,
@@ -339,6 +387,81 @@ class ClassifierTables(object):
 
 
 ######################################################################
+# Version annotations
+######################################################################
+
+def getVersionAnnotation(conn, version):
+    """
+    Get the Annotation object used to represent a particular PyChrm version,
+    or None if not found
+
+    TODO: Should we filter by user, since the owner of a TagAnnotation
+    could change the namespace without us knowing?
+    TODO: Should we allow multiple identical version tags?
+    """
+    qs = conn.getQueryService()
+
+    p = omero.sys.ParametersI()
+    p.map['ns'] = wrap(PYCHRM_VERSION_NAMESPACE)
+    p.map['v'] = wrap(version)
+    vtag = qs.findByQuery(
+        'from TagAnnotation a where a.ns=:ns and a.textValue=:v', p)
+
+    return vtag
+
+
+def createVersionAnnotation(conn, version):
+    """
+    Create the Annotation object used to represent a particular PyChrm version
+    """
+    assert(getVersionAnnotation(conn, version) is None)
+    us = conn.getUpdateService()
+
+    tag = omero.model.TagAnnotationI()
+    tag.setNs(wrap(PYCHRM_VERSION_NAMESPACE))
+    tag.setTextValue(wrap(version))
+    tag = us.saveAndReturnObject(tag)
+    return tag
+
+
+def getVersion(conn, objType, objId):
+    """
+    Get the PyCHRM version associated with an object
+    """
+    obj = conn.getObject(objType, objId)
+    anns = list(obj.listAnnotations(PYCHRM_VERSION_NAMESPACE))
+    if len(anns) == 1:
+        return anns[0]
+    if not anns:
+        return None
+
+    raise PychrmStorageError(
+        'Multiple versions attached to %s:%d' % (objType, objId))
+
+
+def assertVersionMatch(requiredver, actualver, source=None):
+    if source:
+        source = ' (%s)' % source
+    else:
+        source = ''
+    if requiredver is None:
+        raise PychrmStorageError('Required version must not be None')
+    if actualver is None:
+        raise PychrmStorageError('Version is None: "%s"%s' %
+                                 (actualver, source))
+
+    if not isinstance(requiredver, str):
+        requiredver = requiredver.getTextValue()
+    if not isinstance(actualver, str):
+        actualver = actualver.getTextValue()
+    if requiredver != actualver:
+        raise PychrmStorageError('Required version "%s", got version "%s"%s' %
+                                 (requiredver, actualver, source))
+
+
+
+
+######################################################################
 # Annotations
 ######################################################################
 
@@ -348,32 +471,32 @@ def addFileAnnotationTo(tc, obj):
     Attach a table as an annotation to an object (dataset/project) if not
     already attached
     """
-    tfile = tc.table.getOriginalFile()
+    # The OriginalFile may be out-of-date, which can lead to data loss, so
+    # reload it
+    #tfile = tc.table.getOriginalFile()
+    tfile = tc.conn.getObject(
+        'OriginalFile', unwrap(tc.table.getOriginalFile().getId()))
     oclass = obj.OMERO_CLASS
 
     obj = tc.conn.getObject(oclass, obj.getId())
     for a in obj.listAnnotations(PYCHRM_NAMESPACE):
         if isinstance(a, omero.gateway.FileAnnotationWrapper):
-            if tfile.getId() == a._obj.getFile().getId():
+            if tfile.getId() == unwrap(a._obj.getFile().getId()):
                 return 'Already attached'
 
     fa = omero.model.FileAnnotationI()
-    fa.setFile(tfile)
+    fa.setFile(tfile._obj)
     fa.setNs(wrap(PYCHRM_NAMESPACE))
-    fa.setDescription(wrap(PYCHRM_NAMESPACE + ':' + tfile.getName().val))
+    fa.setDescription(wrap(PYCHRM_NAMESPACE + ':' + tfile.getName()))
 
-    if oclass == 'Dataset':
-        annLink = omero.model.DatasetAnnotationLinkI()
-        annLink.link(omero.model.DatasetI(obj.getId(), False), fa)
-    elif oclass == 'Project':
-        annLink = omero.model.ProjectAnnotationLinkI()
-        annLink.link(omero.model.ProjectI(obj.getId(), False), fa)
-    else:
-        raise PychrmStorageError('Unexpected object type: %s' % oclass)
+    objClass = getattr(omero.model, oclass + 'I')
+    linkClass = getattr(omero.model, oclass + 'AnnotationLinkI')
+    annLink = linkClass()
+    annLink.link(objClass(obj.getId(), False), fa)
 
     annLink = tc.conn.getUpdateService().saveAndReturnObject(annLink)
     return 'Attached file id:%d to %s id:%d\n' % \
-        (tfile.getId().getValue(), oclass, obj.getId())
+        (tfile.getId(), oclass, obj.getId())
 
 
 def getAttachedTableFile(tc, obj):
@@ -400,17 +523,10 @@ def addCommentTo(conn, comment, objType, objId):
     ca.setNs(wrap(PYCHRM_NAMESPACE))
     ca.setTextValue(wrap(comment))
 
-    if objType == "Dataset":
-        annLink = omero.model.DatasetAnnotationLinkI()
-        annLink.link(omero.model.DatasetI(objId, False), ca)
-    elif objType == "Project":
-        annLink = omero.model.ProjectAnnotationLinkI()
-        annLink.link(omero.model.ProjectI(objId, False), ca)
-    elif objType == "Image":
-        annLink = omero.model.ImageAnnotationLinkI()
-        annLink.link(omero.model.ImageI(objId, False), ca)
-    else:
-        raise PychrmStorageError('Unexpected object type: %s' % objType)
+    objClass = getattr(omero.model, objType + 'I')
+    linkClass = getattr(omero.model, objType + 'AnnotationLinkI')
+    annLink = linkClass()
+    annLink.link(objClass(objId, False), ca)
 
     annLink = conn.getUpdateService().saveAndReturnObject(annLink)
     return 'Attached comment to %s id:%d\n' % (objType, objId)
@@ -426,17 +542,10 @@ def addTagTo(conn, tag, objType, objId):
                 unwrap(tag.getId()) == a.getId():
             return 'Already tagged %s id:%d\n' % (objType, objId)
 
-    if objType == "Dataset":
-        annLink = omero.model.DatasetAnnotationLinkI()
-        annLink.link(omero.model.DatasetI(objId, False), tag)
-    elif objType == "Project":
-        annLink = omero.model.ProjectAnnotationLinkI()
-        annLink.link(omero.model.ProjectI(objId, False), tag)
-    elif objType == "Image":
-        annLink = omero.model.ImageAnnotationLinkI()
-        annLink.link(omero.model.ImageI(objId, False), tag)
-    else:
-        raise PychrmStorageError('Unexpected object type: %s' % objType)
+    objClass = getattr(omero.model, objType + 'I')
+    linkClass = getattr(omero.model, objType + 'AnnotationLinkI')
+    annLink = linkClass()
+    annLink.link(objClass(objId, False), tag)
 
     annLink = conn.getUpdateService().saveAndReturnObject(annLink)
     return 'Attached tag to %s id:%d\n' % (objType, objId)
@@ -479,13 +588,69 @@ def createClassifierTagSet(conn, classifierName, instanceName, labels,
 
 def getClassifierTagSet(classifierName, instanceName, project):
     ns = classifierName + '/' + instanceName
-    for ann in project.listAnnotations():
-        if ann.getNs() == omero.constants.metadata.NSINSIGHTTAGSET and \
-                ann.getValue() == ns and \
-                isinstance(ann, omero.gateway.TagAnnotationWrapper):
-            return ann
+    anns = [a for a in project.listAnnotations() if \
+                a.getNs() == omero.constants.metadata.NSINSIGHTTAGSET and \
+                a.getValue() == ns and \
+                isinstance(a, omero.gateway.TagAnnotationWrapper)]
 
-    return None
+    if len(anns) == 1:
+        return anns[0]
+
+    if not anns:
+        return None
+
+    raise PychrmStorageError(
+        'Multiple tagsets attached to Project:%d' % project.getId())
+
+
+def deleteTags(conn, tagsetParent):
+    """
+    Delete a tag or tagset including child tags
+    """
+    qs = conn.getQueryService()
+
+    p = omero.sys.ParametersI()
+    p.map['pid'] = wrap(tagsetParent.id)
+    links = qs.findAllByQuery(
+        'from AnnotationAnnotationLink aal '
+        'join fetch aal.parent join fetch aal.child '
+        'where aal.parent.id=:pid', p)
+
+    dcs = [omero.cmd.Delete('/Annotation', unwrap(cl.child.id), None)
+           for cl in links]
+    dcs.append(omero.cmd.Delete('/Annotation', unwrap(tagsetParent.id), None))
+
+    doall = omero.cmd.DoAll()
+    doall.requests = dcs
+    handle = conn.c.sf.submit(doall, conn.SERVICE_OPTS)
+    try:
+        conn._waitOnCmd(handle)
+    finally:
+        handle.close()
+
+
+def unlinkAnnotations(conn, obj):
+    """
+    Unlink (but don't delete) any annotations on this object
+    """
+    qs = conn.getQueryService()
+    linkClass = '%sAnnotationLink' % obj.OMERO_CLASS
+
+    p = omero.sys.ParametersI()
+    p.map['pid'] = wrap(obj.id)
+    links = qs.findAllByQuery(
+        'from %s al where al.parent.id=:pid' % linkClass, p)
+    dcs = [omero.cmd.Delete('/' + linkClass, unwrap(l.id), None) for l in links]
+
+    if dcs:
+        doall = omero.cmd.DoAll()
+        doall.requests = dcs
+        handle = conn.c.sf.submit(doall, conn.SERVICE_OPTS)
+        try:
+            conn._waitOnCmd(handle)
+        finally:
+            handle.close()
+
 
 
 ######################################################################
