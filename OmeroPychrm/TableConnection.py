@@ -141,13 +141,14 @@ class TableConnection(Connection):
             though the underlying getTable() call works.
             Automatically retry opening the table n times.
             Throws an exception if the table has still not been opened.
+            See trac #10464
             """
             for i in xrange(n):
                 t = self.res.openTable(ofile)
                 if t:
                     return t
-                self.log.warn('Failed to open table %d (attempt %d)',
-                              ofile.getId().val, i + 1)
+                self.log.error('Failed to open table %d (attempt %d)',
+                               ofile.getId().val, i + 1)
             raise TableConnectionError(
                 'Failed to open table %d' % ofile.getId().val)
 
