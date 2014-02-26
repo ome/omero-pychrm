@@ -29,6 +29,8 @@ from omero.gateway import BlitzGateway
 from omero.grid import LongColumn, BoolColumn, \
     LongArrayColumn, DoubleArrayColumn
 
+# Retry openTable and newTable, see trac #10464
+TABLE_RETRIES = 5
 
 class TableConnectionError(Exception):
     """
@@ -177,7 +179,7 @@ class TableConnection(Connection):
             self.log.debug('Using existing connection to table id:%d', tableId)
         else:
             self.closeTable()
-            self.table = openRetry(ofile._obj, 5)
+            self.table = openRetry(ofile._obj, TABLE_RETRIES)
             self.tableId = ofile.getId()
             self.log.debug('Opened table id:%d', self.tableId)
 
@@ -254,7 +256,7 @@ class TableConnection(Connection):
         if not self.tableName:
             raise TableConnectionError('No tableName set')
 
-        self.table = newRetry(self.rid, self.tableName, 5)
+        self.table = newRetry(self.rid, self.tableName, TABLE_RETRIES)
         ofile = self.table.getOriginalFile()
         self.tableId = ofile.getId().getValue()
 
