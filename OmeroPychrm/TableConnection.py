@@ -234,11 +234,27 @@ class TableConnection(Connection):
         @param schema the table description
         @return A handle to the table
         """
+        def newRetry(rid, name, n):
+            """
+            OMERO newTable sometimes returns None for no apparent reason
+            Automatically retry n times.
+            See trac #10464
+            """
+            for i in xrange(n):
+                t = self.res.newTable(rid, name)
+                if t:
+                    return t
+                self.log.error('Failed to create new table %s (attempt %d)',
+                               name, i + 1)
+            raise TableConnectionError(
+                'Failed to create new table %s' % name)
+
+
         self.closeTable()
         if not self.tableName:
             raise TableConnectionError('No tableName set')
 
-        self.table = self.res.newTable(self.rid, self.tableName)
+        self.table = newRetry(self.rid, self.tableName, 5)
         ofile = self.table.getOriginalFile()
         self.tableId = ofile.getId().getValue()
 
