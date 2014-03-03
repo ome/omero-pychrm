@@ -19,7 +19,7 @@ setup(
     install_requires=[
         'pychrm>=0.1.0',
         ],
-    dependency_links=['svn+http://wnd-charm.googlecode.com/svn/pychrm/trunk/@675#egg=pychrm-0.1.0'],
+    #dependency_links=['svn+http://wnd-charm.googlecode.com/svn/pychrm/trunk/@675#egg=pychrm-0.1.0'],
 )
 
 
