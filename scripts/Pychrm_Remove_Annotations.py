@@ -36,17 +36,26 @@ def removeAnnotations(conn, obj, rmTables, rmComments, rmTags):
     """
     Remove annotations that are in one of the PyChrm namespaces
     """
+    message = ''
+
     rmIds = []
     for ann in obj.listAnnotations():
         if ann.getNs() == PychrmStorage.PYCHRM_NAMESPACE:
-            if (rmTables and isinstance(ann, FileAnnotationWrapper)) or \
-                (rmComments and isinstance(ann, CommentAnnotationWrapper)):
+            if rmTables and isinstance(ann, FileAnnotationWrapper):
+                # Need to remove version annotation on the OriginalFile
+                # otherwise delete will fail
+                PychrmStorage.unlinkAnnotations(conn, ann.getFile())
+                message += ('Checking for annotations on file id:%d\n' %
+                            ann.getFile().getId())
+                rmIds.append(ann.getId())
+
+            if rmComments and isinstance(ann, CommentAnnotationWrapper):
                 rmIds.append(ann.getId())
 
     if rmIds:
         conn.deleteObjects('Annotation', rmIds)
 
-    message = 'Removed annotations:%s from %s id:%d\n' % \
+    message += 'Removed annotations:%s from %s id:%d\n' % \
         (rmIds, obj.OMERO_CLASS, obj.getId())
 
     if rmTags:
@@ -170,7 +179,7 @@ def runScript():
         message += 'Duration: %s' % str(stopTime - startTime)
 
         print message
-        client.setOutput('Message', rstring(message))
+        client.setOutput('Message', rstring(str(message)))
 
     finally:
         client.closeSession()

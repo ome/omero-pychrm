@@ -23,7 +23,7 @@
 #
 from omero import scripts
 import omero.model
-from omero.rtypes import rstring, rlong
+from omero.rtypes import rstring, rlong, unwrap
 from datetime import datetime
 import numpy
 
@@ -42,6 +42,7 @@ def loadClassifier(ctb, project):
                         (tidF, tidW, tidL))
 
     ctb.openTables(tidF, tidW, tidL)
+    version = unwrap(ctb.versiontag.getTextValue())
 
     cls = ctb.loadClassifierTables()
     #ids,trainClassIds,featureMatrix,featureNames,weights,classIds,classNames
@@ -64,6 +65,8 @@ def loadClassifier(ctb, project):
         cprev = c
         classCounts[c] += 1
     trainFts.classsizes_list = classCounts
+
+    trainFts.feature_vector_version = version
 
     classFts = [[] for n in xrange(len(cls['classNames']))]
     p = 0
@@ -151,10 +154,12 @@ def addToFeatureSet(ftb, ds, fts, classId):
     if tid:
         if not ftb.openTable(tid):
             return message + '\nERROR: Table not opened'
-        message += 'Opened table id:%d\n' % tid
+        version = unwrap(ftb.versiontag.getTextValue())
+        message += 'Opened table id:%d version:%s\n' % (tid, version)
     else:
         message += 'ERROR: Table not found for Dataset id:%d' % ds.getId()
         return message
+
 
     #fts = pychrm.FeatureSet.FeatureSet_Discrete({'num_images': 0})
     for image in ds.listChildren():
@@ -166,6 +171,7 @@ def addToFeatureSet(ftb, ds, fts, classId):
         (sig.names, sig.values) = ftb.loadFeatures(imId)
         #sig.source_file = image.getName()
         sig.source_file = str(imId)
+        sig.version = version
         fts.AddSignature(sig, classId)
 
     fts.classnames_list[classId] = ds.getName()
@@ -290,7 +296,7 @@ def runScript():
         message += 'Duration: %s' % str(stopTime - startTime)
 
         print message
-        client.setOutput('Message', rstring(message))
+        client.setOutput('Message', rstring(str(message)))
 
     finally:
         client.closeSession()

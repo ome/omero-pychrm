@@ -23,7 +23,7 @@
 #
 from omero import scripts
 import omero.model
-from omero.rtypes import rstring, rlong
+from omero.rtypes import rstring, rlong, unwrap
 from datetime import datetime
 from math import ceil
 from itertools import izip
@@ -55,12 +55,14 @@ def createWeights(ftb, ctb, project, featureThreshold, imagesOnly):
         weights = weights.Threshold(nFeatures)
         trainFts = reduceFeatures(trainFts, weights)
 
+    version = trainFts.feature_vector_version
 
     # Save the features, weights and classes to tables
     # TODO:Delete existing tables
     #if getProjectTableFile(tcOutF, tcF.tableName, proj):
-    ctb.createClassifierTables(weights.names)
-    message += 'Created classifier tables\n'
+    ctb.createClassifierTables(weights.names, version)
+    message += 'Created classifier tables ids: %d %d %d version:%s\n' % (
+        ctb.tcF.tableId, ctb.tcW.tableId, ctb.tcL.tableId, version)
 
     # We've (ab)used imagenames_list to hold the image ids
     ids = [long(a) for b in trainFts.imagenames_list for a in b]
@@ -103,7 +105,8 @@ def addToFeatureSet(ftb, ds, fts, classId, imagesOnly):
     if tid:
         if not ftb.openTable(tid):
             return message + '\nERROR: Table not opened'
-        message += 'Opened table id:%d\n' % tid
+        version = unwrap(ftb.versiontag.getTextValue())
+        message += 'Opened table id:%d version:%s\n' % (tid, version)
     else:
         message += 'ERROR: Table not found for Dataset id:%d' % ds.getId()
         return message
@@ -117,6 +120,7 @@ def addToFeatureSet(ftb, ds, fts, classId, imagesOnly):
             sig = pychrm.FeatureSet.Signatures()
             (sig.names, sig.values) = ftb.loadFeatures(imId)
             sig.source_file = str(imId)
+            sig.version = version
             fts.AddSignature(sig, classId)
 
     else:
@@ -128,6 +132,7 @@ def addToFeatureSet(ftb, ds, fts, classId, imagesOnly):
             sig.names = names
             sig.values = vals
             sig.source_file = str(imId)
+            sig.version = version
             fts.AddSignature(sig, classId)
 
     fts.classnames_list[classId] = ds.getName()
@@ -242,7 +247,7 @@ def runScript():
         message += 'Duration: %s' % str(stopTime - startTime)
 
         print message
-        client.setOutput('Message', rstring(message))
+        client.setOutput('Message', rstring(str(message)))
 
     finally:
         client.closeSession()
