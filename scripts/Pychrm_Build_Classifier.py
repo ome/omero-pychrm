@@ -115,12 +115,6 @@ def addToFeatureSet(ftb, ds, fts, classId, imagesOnly):
             message += '\tProcessing features for image id:%d\n' % imId
 
             sig = pychrm.FeatureSet.Signatures()
-            # Versioning exists to account for the years of legacy features
-            # that were calculated using buggy algorithms
-            # Anything calculated after this point in time is major version 2
-            # Minor version .0 refers to the fact that the features being loaded
-            # aren't necessarily part of a recognized set of features
-            sig.version = '2.0'
             (sig.names, sig.values) = ftb.loadFeatures(imId)
             sig.source_file = str(imId)
             fts.AddSignature(sig, classId)
