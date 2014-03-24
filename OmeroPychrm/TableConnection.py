@@ -25,7 +25,6 @@ from itertools import izip
 import logging
 import omero
 from copy import deepcopy
-import Ice
 from omero.gateway import BlitzGateway
 from omero.grid import LongColumn, BoolColumn, \
     LongArrayColumn, DoubleArrayColumn
@@ -147,12 +146,9 @@ class TableConnection(Connection):
             See trac #10464
             """
             for i in xrange(n):
-                try:
-                    t = self.res.openTable(ofile)
-                    if t:
-                        return t
-                except Ice.ConnectionLostException as e:
-                    self.log.error('Caught Exception: %s', e)
+                t = self.res.openTable(ofile)
+                if t:
+                    return t
                 self.log.error('Failed to open table %d (attempt %d)',
                                ofile.getId().val, i + 1)
             raise TableConnectionError(
@@ -247,12 +243,9 @@ class TableConnection(Connection):
             See trac #10464
             """
             for i in xrange(n):
-                try:
-                    t = self.res.newTable(rid, name)
-                    if t:
-                        return t
-                except Ice.ConnectionLostException as e:
-                    self.log.error('Caught Exception: %s', e)
+                t = self.res.newTable(rid, name)
+                if t:
+                    return t
                 self.log.error('Failed to create new table %s (attempt %d)',
                                name, i + 1)
             raise TableConnectionError(
