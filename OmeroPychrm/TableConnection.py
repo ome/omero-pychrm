@@ -29,6 +29,8 @@ from omero.gateway import BlitzGateway
 from omero.grid import LongColumn, BoolColumn, \
     LongArrayColumn, DoubleArrayColumn
 
+# Retry openTable and newTable, see trac #10464
+TABLE_RETRIES = 5
 
 class TableConnectionError(Exception):
     """
@@ -141,13 +143,14 @@ class TableConnection(Connection):
             though the underlying getTable() call works.
             Automatically retry opening the table n times.
             Throws an exception if the table has still not been opened.
+            See trac #10464
             """
             for i in xrange(n):
                 t = self.res.openTable(ofile)
                 if t:
                     return t
-                self.log.warn('Failed to open table %d (attempt %d)',
-                              ofile.getId().val, i + 1)
+                self.log.error('Failed to open table %d (attempt %d)',
+                               ofile.getId().val, i + 1)
             raise TableConnectionError(
                 'Failed to open table %d' % ofile.getId().val)
 
@@ -176,7 +179,7 @@ class TableConnection(Connection):
             self.log.debug('Using existing connection to table id:%d', tableId)
         else:
             self.closeTable()
-            self.table = openRetry(ofile._obj, 5)
+            self.table = openRetry(ofile._obj, TABLE_RETRIES)
             self.tableId = ofile.getId()
             self.log.debug('Opened table id:%d', self.tableId)
 
@@ -233,11 +236,27 @@ class TableConnection(Connection):
         @param schema the table description
         @return A handle to the table
         """
+        def newRetry(rid, name, n):
+            """
+            OMERO newTable sometimes returns None for no apparent reason
+            Automatically retry n times.
+            See trac #10464
+            """
+            for i in xrange(n):
+                t = self.res.newTable(rid, name)
+                if t:
+                    return t
+                self.log.error('Failed to create new table %s (attempt %d)',
+                               name, i + 1)
+            raise TableConnectionError(
+                'Failed to create new table %s' % name)
+
+
         self.closeTable()
         if not self.tableName:
             raise TableConnectionError('No tableName set')
 
-        self.table = self.res.newTable(self.rid, self.tableName)
+        self.table = newRetry(self.rid, self.tableName, TABLE_RETRIES)
         ofile = self.table.getOriginalFile()
         self.tableId = ofile.getId().getValue()
 
