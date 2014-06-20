@@ -30,8 +30,10 @@ from itertools import izip
 from tempfile import NamedTemporaryFile
 
 
-from OmeroPychrm import PychrmStorage
+import pychrm
 from pychrm.FeatureSet import Signatures
+from pychrm.PyImageMatrix import PyImageMatrix
+from OmeroPychrm import PychrmStorage
 
 try:
     from PIL import Image, ImageDraw, ImageFont     # see ticket:2597
@@ -40,23 +42,6 @@ except: #pragma: nocover
         import Image, ImageDraw, ImageFont          # see ticket:2597
     except:
         raise omero.ServerError('No PIL installed')
-
-
-
-def getTifs(im):
-    sz = (im.getSizeX(), im.getSizeY())
-    nch = im.getSizeC()
-    zctlist = [(0, ch, 0) for ch in xrange(im.getSizeC())]
-    planes = im.getPrimaryPixels().getPlanes(zctlist)
-    tifs = [Image.fromarray(p) for p in planes]
-
-    tmpfs = []
-    for tif in tifs:
-        with NamedTemporaryFile(suffix='.tif', delete=False) as tmpf:
-            tif.save(tmpf.name)
-        tmpfs.append(tmpf)
-
-    return tmpfs
 
 
 def extractFeatures(ftb, ds, newOnly, chNames, imageId = None, im = None,
@@ -88,19 +73,26 @@ def extractFeatures(ftb, ds, newOnly, chNames, imageId = None, im = None,
         if newOnly and ftb.tableContainsId(imageId):
             return message + 'Image id:%d features already in table' % imageId
 
-    # Pychrm only takes tifs
-    tmpfs = getTifs(im)
+    # FIXME: default is convert multichannel to greyscale unless user input
 
     # Calculate features for an image channel
-    # Override the temporary filename
     # Optionally prepend the channel label to each feature name and combine
     ftall = None
-    for tmpf, ch in izip(tmpfs, chNames):
-        ft = Signatures.SmallFeatureSet(tmpf.name)
+    for c in xrange( len( chNames ) ):
+	    
+        pychrm_matrix = PyImageMatrix()
+        pychrm_matrix.allocate( im.getSizeX(), im.getSizeY() )
+        numpy_matrix = pychrm_matrix.as_ndarray()
+
+        numpy_matrix[:] = im.getPrimaryPixels().getPlane(theZ=0,theC=c,theT=0)
+        feature_plan = pychrm.StdFeatureComputationPlans.getFeatureSet();
+        options = "" # This is where you can tell wnd-charm to normalize pixel intensities, 
+                     # take ROIs etc. ... leave blank for now.
+        ft = Signatures.NewFromFeatureComputationPlan( pychrm_matrix, feature_plan, options )  
+
         if prefixChannel:
-            ft.names = ['[%s] %s' % (ch, n) for n in ft.names]
+            ft.names = ['[%s] %s' % (c, n) for n in ft.names]
         ft.source_path = im.getName()
-        tmpf.unlink(tmpf.name)
         if not ftall:
             ftall = ft
         else:

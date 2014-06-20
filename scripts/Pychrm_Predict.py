@@ -166,7 +166,6 @@ def addToFeatureSet(ftb, ds, fts, classId):
         imId = image.getId()
         message += '\tProcessing features for image id:%d\n' % imId
         #message += extractFeatures(tc, d, im = image) + '\n'
-
         sig = pychrm.FeatureSet.Signatures()
         (sig.names, sig.values) = ftb.loadFeatures(imId)
         #sig.source_file = image.getName()
@@ -242,9 +241,8 @@ def runScript():
     """
 
     client = scripts.client(
-        'Pychrm_Build_Classifier.py',
-        'Build a classifier from features calculated over two or more ' +
-        'datasets, each dataset represents a different class',
+        'Pychrm_Predict.py',
+        'Tag images based on their classification result',
 
         scripts.String('Data_Type', optional=False, grouping='1',
                        description='The source data to be predicted.',
