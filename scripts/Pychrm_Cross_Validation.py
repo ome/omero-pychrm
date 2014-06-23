@@ -71,12 +71,7 @@ def crossValidate(ftb, project, featureThreshold, imagesOnly, numSplits):
 
     out = StringIO()
     experiment.Print(output_stream=out)
-    try:
-        experiment.PredictedValueAnalysis(output_stream=out)
-    except Exception as e:
-        m = 'Error in experiment.PredictedValueAnalysis: %s' % e
-        message += m + '\n'
-        out.write('\n' + m + '\n')
+    experiment.PerSampleStatistics(output_stream=out)
 
     pid = project.getId()
     PychrmStorage.addTextFileAnnotationTo(
