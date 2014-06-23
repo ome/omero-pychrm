@@ -32,7 +32,15 @@ from datetime import datetime
 from OmeroPychrm import PychrmStorage
 
 
-def removeAnnotations(conn, obj, rmTables, rmComments, rmTags):
+def deleteObjects(conn, objType, ids):
+    if ids:
+        handle = conn.deleteObjects(objType, ids)
+        try:
+            conn._waitOnCmd(handle, len(ids))
+        finally:
+            handle.close()
+
+def removeAnnotations(conn, obj, rmTables, rmComments, unlinkTags, rmTagsets):
     """
     Remove annotations that are in one of the PyChrm namespaces
     """
@@ -52,19 +60,22 @@ def removeAnnotations(conn, obj, rmTables, rmComments, rmTags):
             if rmComments and isinstance(ann, CommentAnnotationWrapper):
                 rmIds.append(ann.getId())
 
-    if rmIds:
-        conn.deleteObjects('Annotation', rmIds)
+    deleteObjects(conn, 'Annotation', rmIds)
 
     message += 'Removed annotations:%s from %s id:%d\n' % \
         (rmIds, obj.OMERO_CLASS, obj.getId())
 
-    if rmTags:
+    if unlinkTags:
         message += removeTagAnnotations(conn, obj)
+
+    if rmTagsets:
+        message += removeTags(conn, obj)
 
     try:
         # Keep recursing until listChildren not implemented
         for ch in obj.listChildren():
-            message += removeAnnotations(conn, ch, rmTables, rmComments, rmTags)
+            message += removeAnnotations(
+                conn, ch, rmTables, rmComments, unlinkTags, rmTagsets)
     except NotImplementedError:
         pass
 
@@ -93,11 +104,53 @@ def removeTagAnnotations(conn, obj):
             rmIds.append(unwrap(ann.getId()))
             rmTags.append(unwrap(ann.child.getTextValue()))
 
-    if rmIds:
-        conn.deleteObjects(linkType, rmIds)
+    deleteObjects(conn, linkType, rmIds)
 
     message = 'Removed tags: %s from %s id:%d\n' % (
         rmTags, obj.OMERO_CLASS, obj.getId())
+    return message
+
+
+def removeTags(conn, obj):
+    """
+    Delete classifier tagsets attached to a project
+
+    Note it is not possible to set a namespace for tagsets, so we rely on the
+    tag value beginning with PychrmStorage.CLASSIFIER_PYCHRM_NAMESPACE
+    """
+    if obj.OMERO_CLASS != 'Project':
+        return ''
+
+    q = 'select oal from ProjectAnnotationLink as oal join ' \
+        'fetch oal.child as ann where oal.parent.id = :parentid and ' \
+        'oal.child.ns = :ns and ' \
+        'oal.child.textValue like :value'
+    params = omero.sys.ParametersI()
+    params.addLong('parentid', obj.getId())
+    params.addString('ns', omero.constants.metadata.NSINSIGHTTAGSET)
+    params.addString('value', PychrmStorage.CLASSIFIER_PYCHRM_NAMESPACE + '/%')
+    anns = conn.getQueryService().findAllByQuery(q, params)
+
+    rmTagsets = [unwrap(ann.getChild().getId()) for ann in anns]
+
+    if rmTagsets:
+        q = 'select oal from AnnotationAnnotationLink as oal join ' \
+            'fetch oal.child join fetch oal.parent '\
+            'where oal.parent.id in (:parentids) and ' \
+            'oal.child.ns like :ns'
+        params = omero.sys.ParametersI()
+        params.addLongs('parentids', rmTagsets)
+        params.addString('ns', PychrmStorage.CLASSIFIER_PYCHRM_NAMESPACE + '/%')
+        anns = conn.getQueryService().findAllByQuery(q, params)
+
+        rmTags = [unwrap(ann.getChild().getId()) for ann in anns]
+    else:
+        rmTags = []
+
+    deleteObjects(conn, 'Annotation', rmTagsets + rmTags)
+
+    message = 'Removed tagsets: %s tags: %s from %s id:%d\n' % (
+        rmTagsets, rmTags, obj.OMERO_CLASS, obj.getId())
     return message
 
 
@@ -109,7 +162,8 @@ def processObjects(client, scriptParams):
     ids = scriptParams['IDs']
     rmTables = scriptParams['Remove_tables']
     rmComments = scriptParams['Remove_comments']
-    rmTags = scriptParams['Remove_tags']
+    unlinkTags = scriptParams['Untag_images']
+    rmTagsets = scriptParams['Remove_tagsets']
 
     # Get the images or datasets
     conn = BlitzGateway(client_obj=client)
@@ -119,14 +173,15 @@ def processObjects(client, scriptParams):
         return None, message
 
     for o in objects:
-        message += removeAnnotations(conn, o, rmTables, rmComments, rmTags)
+        message += removeAnnotations(
+            conn, o, rmTables, rmComments, unlinkTags, rmTagsets)
 
     return message
 
 
 def runScript():
     """
-    The main entry point of the script, as called by the client via the scripting service, passing the required parameters. 
+    The main entry point of the script, as called by the client via the scripting service, passing the required parameters.
     """
 
     dataTypes = [rstring('Project'), rstring('Dataset'), rstring('Image')]
@@ -151,8 +206,12 @@ def runScript():
             description='Remove comments', default=True),
 
         scripts.Bool(
-            'Remove_tags', optional=False, grouping='4',
-            description='Remove tags', default=True),
+            'Untag_images', optional=False, grouping='4',
+            description='Remove tags from images', default=True),
+
+        scripts.Bool(
+            'Remove_tagsets', optional=False, grouping='5',
+            description='Remove classifier tagsets and tags', default=False),
 
         version = '0.0.1',
         authors = ['Simon Li', 'OME Team'],
@@ -186,4 +245,3 @@ def runScript():
 
 if __name__ == '__main__':
     runScript()
-
