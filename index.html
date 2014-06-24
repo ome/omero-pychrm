@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="OMERO-pychrm (beta) : Scripts for using Pychrm in OMERO" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>OMERO-pychrm (beta)</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/manics/omero-pychrm">View on GitHub</a>
+
+          <h1 id="project_title">OMERO-pychrm (beta)</h1>
+          <h2 id="project_tagline">Scripts for using Pychrm in OMERO</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/manics/omero-pychrm/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/manics/omero-pychrm/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>
+<a name="omero-pychrm-beta" class="anchor" href="#omero-pychrm-beta"><span class="octicon octicon-link"></span></a>OMERO-pychrm (beta)</h1>
+
+<p><a href="https://github.com/manics/omero-pychrm/">OMERO-pychrm</a> is a small Python library and set of scripts for using <a href="https://github.com/wnd-charm/wnd-charm">WND-CHARM</a> in <a href="http://www.openmicroscopy.org/">OMERO</a>.</p>
+
+<p>WND-CHARM is a set of feature calculation and machine learning algorithms that is designed to work across a large variety of images.</p>
+
+<p>At present OMERO-pychrm should be considered beta quality. It is likely that the storage formats for features and schemas used for recording classification results and other metadata are likely to change.</p>
+
+<h2>
+<a name="installation" class="anchor" href="#installation"><span class="octicon octicon-link"></span></a>Installation</h2>
+
+<p>See the <a href="https://github.com/manics/omero-pychrm/#omero-pychrm">README file</a>.</p>
+
+<h2>
+<a name="using-omero-pychrm" class="anchor" href="#using-omero-pychrm"><span class="octicon octicon-link"></span></a>Using OMERO-pychrm</h2>
+
+<p>At present OMERO-pychrm is limited to supervised classification, where all images have the same number of channels.</p>
+
+<ol>
+<li>
+<p>Create a Project to hold the training set of images, the classifier will be named after this project. Within this project create some datasets, one for each class. The names of the datasets will be used as class labels. You can also create a test dataset, outside of the training project.</p>
+
+<p><img src="images/01-train_and_test_datasets.png" alt="Train and test datasets"></p>
+</li>
+<li>
+<p>Calculate some features for the training project. Select the project, and load the <code>Pychrm Feature Extraction Multichannel</code> script. Accept the default parameters and click <code>Run Script</code>. Do the same for the testing set.</p>
+
+<p><img src="images/02-feature_menu.png" alt="Script menu, feature calculation"><img src="images/03-feature_dialog.png" alt="Feature calculation dialog"></p>
+</li>
+<li>
+<p>Wait for the feature calculation to finish.</p>
+
+<p><img src="images/04-feature_in_progress.png" alt="Feature calculation scripts in progress"><img src="images/05-feature_completed.png" alt="Feature calculation scripts completed"></p>
+</li>
+<li>
+<p>Each dataset should have a file attachment, containing the calculated features.</p>
+
+<p><img src="images/06-feature_table_attachment.png" alt="Features file attachment"></p>
+</li>
+<li>
+<p>Build the classifier. Select the training project, and load the <code>Pychrm Build Classifier</code> script. Accept the default parameters and click <code>Run Script</code>.</p>
+
+<p><img src="images/07-build_classifier_menu.png" alt="Script menu, build classifier"><img src="images/08-build_classifier_dialog.png" alt="Build classifier dialog"></p>
+</li>
+<li>
+<p>When the classifier has been built refresh the page and you should see three file attachments on the project. These hold the features, the feature weights and the class labels.</p>
+
+<p><img src="images/09-classifer_table_attachments.png" alt="Classifier file attachments"></p>
+</li>
+<li>
+<p>You can test the classifier by predicting the class of the test images. Select the testing dataset, and load the <code>Pychrm Predict</code> script. You must fill in the <code>Training Project ID</code> with the ID of the project that the classifier is attached to. Click <code>Run Script</code>.</p>
+
+<p><img src="images/10-predict_menu.png" alt="Script menu, prediction"><img src="images/11-predict_dialog.png" alt="Prediction dialog"></p>
+</li>
+<li>
+<p>When the prediction script has finished the test dataset will have a comment containing the predicted classes and marginal probabilities for all images in the dataset.</p>
+
+<p><img src="images/12-predict_dataset_comments.png" alt="Prediction dataset comment"></p>
+</li>
+<li>
+<p>In addition each test image will be tagged with its predicted class.</p>
+
+<p><img src="images/13-predict_image_tag.png" alt="Predicted class tag"></p>
+</li>
+<li>
+<p>All tags associated with the built classifier belong to a single tagset, visible from the Tags view.</p>
+
+<p><img src="images/14-predict_tagset.png" alt="Classifier tagset"></p>
+</li>
+<li>
+<p>Advanced users may want to try varying the training parameters, or to evaluate the classifier using cross-validation.</p>
+
+<p><img src="images/15-cross_validation_menu.png" alt="Script menu, cross-validation"><img src="images/16-cross_validation_dialog.png" alt="Cross-validation dialog"><img src="images/17-cross_validation_attachment.png" alt="Cross-validation attachment"></p>
+</li>
+</ol>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">OMERO-pychrm (beta) maintained by <a href="https://github.com/manics">manics</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
