@@ -105,6 +105,10 @@ class TestPychrmStorage(unittest.TestCase):
         r = PychrmStorage.createFeatureName('a b', 321)
         self.assertEqual(r, 'a b [321]')
 
+    def insert_channel_name(self):
+        r = PychrmStorage.insert_channel_name('a (b ()) [3]', 'ch')
+        self.assertEqual(r, 'a (b (ch)) [3]')
+
     def featureSizes(self):
         ftsz = PychrmStorage.featureSizes(['a b [12]', 'c d [3]', 'a b [14]'])
         self.assertEqual(len(ftsz.keys), 2)
