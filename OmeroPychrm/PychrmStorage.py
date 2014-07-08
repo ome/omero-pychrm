@@ -25,6 +25,7 @@
 # This has now expanded to do a lot more, and should be split up/renamed
 
 from itertools import izip, chain
+from StringIO import StringIO
 from TableConnection import FeatureTableConnection, TableConnectionError
 from TableConnection import TableConnection, Connection
 import omero
@@ -530,6 +531,30 @@ def addCommentTo(conn, comment, objType, objId):
 
     annLink = conn.getUpdateService().saveAndReturnObject(annLink)
     return 'Attached comment to %s id:%d\n' % (objType, objId)
+
+
+def addTextFileAnnotationTo(
+    conn, txt, objType, objId, filename, description=None):
+    """
+    Create a new text file and attach it as an annotation to an object
+    """
+    sio = StringIO(txt)
+    txtf = conn.createOriginalFileFromFileObj(
+        sio, None, filename, sio.len, 'text/plain')
+
+    fa = omero.model.FileAnnotationI()
+    fa.setFile(txtf._obj)
+    fa.setNs(wrap(PYCHRM_NAMESPACE))
+    fa.setDescription(wrap(description))
+
+    objClass = getattr(omero.model, objType + 'I')
+    linkClass = getattr(omero.model, objType + 'AnnotationLinkI')
+    annLink = linkClass()
+    annLink.link(objClass(objId, False), fa)
+
+    annLink = conn.getUpdateService().saveAndReturnObject(annLink)
+    return 'Attached file id:%d to %s id:%d\n' % \
+        (txtf.getId(), objType, objId)
 
 
 def addTagTo(conn, tag, objType, objId):

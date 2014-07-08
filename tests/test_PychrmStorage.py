@@ -555,6 +555,27 @@ class TestAnnotations(ClientHelper):
 
         self.delete('/Project', pid)
 
+    def test_addTextFileAnnotationTo(self):
+        pid = self.create_project('addTextFileAnnotationTo')
+        txt = 'This is\nsome text.'
+        filename = 'addTextFileAnnotationTo.txt'
+        description = 'Description of addTextFileAnnotationTo.txt'
+        PychrmStorage.addTextFileAnnotationTo(
+            self.conn, txt, 'Project', pid, filename, description)
+
+        p = self.conn.getObject('Project', pid)
+        anns = list(p.listAnnotations())
+        self.assertEqual(len(anns), 1)
+        a = anns[0]
+
+        self.assertEqual(a.getFileName(), filename)
+        self.assertEqual(a.getDescription(), description)
+        self.assertEqual(a.getFileSize(), len(txt))
+        self.assertEqual(list(a.getFileInChunks())[0], txt)
+
+        self.delete('/Annotation', a.getId())
+        self.delete('/Project', pid)
+
     def test_addTagTo(self):
         pid = self.create_project('addTagTo')
         txt = 'This is a tag'
