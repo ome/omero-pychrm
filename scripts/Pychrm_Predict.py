@@ -79,7 +79,7 @@ def loadClassifier(ctb, project):
     trainFts.num_classes = nclasses
 
     trainFts.featurenames_list = cls['featureNames']
-    trainFts.imagenames_list = cls['ids']
+    trainFts.imagenames_list = [str(i) for i in cls['ids']]
     tmp = trainFts.ContiguousDataMatrix()
 
     weights = pychrm.FeatureSet.FisherFeatureWeights(
