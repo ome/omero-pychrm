@@ -88,7 +88,7 @@ def insert_channel_name(ftname, cname):
     Inserts a channel name into a raw feature name
     """
     if ftname.find('()') < 0:
-        raise PychrmStorageError(
+        raise WndcharmStorageError(
             'Expected \'()\' in raw feature name: %s' % ftname)
     return ftname.replace('()', '(%s)' % cname)
 
