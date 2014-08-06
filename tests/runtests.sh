@@ -1,5 +1,6 @@
 #!/bin/sh
-export ICE_CONFIG=ice.config
+
+[ -z "$ICE_CONFIG" ] && export ICE_CONFIG=ice.config
 # Python 2.7
 exec python -munittest test_TableConnection test_WndcharmStorage test_Wndcharm
 
