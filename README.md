@@ -12,13 +12,13 @@ source, or using pip:
 
 Although OmeroWndcharm can be installed using pip:
 
-    pip install git+git://github.com/manics/omero-pychrm.git
+    pip install git+git://github.com/ome/omero-wndcharm.git
 
 The scripts for using WND-CHARM in OMERO are also in the same Github source
 repository so you still need to clone it:
 
-    git clone https://github.com/manics/omero-pychrm.git
-    cd omero-pychrm
+    git clone https://github.com/ome/omero-wndcharm.git
+    cd omero-wndcharm
     python setup.py install
 
 Copy the scripts into the OMERO.server script directory:
