@@ -4,11 +4,11 @@
   <head>
     <meta charset='utf-8' />
     <meta http-equiv="X-UA-Compatible" content="chrome=1" />
-    <meta name="description" content="OMERO-pychrm (beta) : Scripts for using Pychrm in OMERO" />
+    <meta name="description" content="OMERO-wndcharm (beta) : Scripts for using Wndcharm in OMERO" />
 
     <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
 
-    <title>OMERO-pychrm (beta)</title>
+    <title>OMERO-wndcharm (beta)</title>
   </head>
 
   <body>
@@ -16,14 +16,14 @@
     <!-- HEADER -->
     <div id="header_wrap" class="outer">
         <header class="inner">
-          <a id="forkme_banner" href="https://github.com/manics/omero-pychrm">View on GitHub</a>
+          <a id="forkme_banner" href="https://github.com/manics/omero-wndcharm">View on GitHub</a>
 
-          <h1 id="project_title">OMERO-pychrm (beta)</h1>
-          <h2 id="project_tagline">Scripts for using Pychrm in OMERO</h2>
+          <h1 id="project_title">OMERO-wndcharm (beta)</h1>
+          <h2 id="project_tagline">Scripts for using Wndcharm in OMERO</h2>
 
             <section id="downloads">
-              <a class="zip_download_link" href="https://github.com/manics/omero-pychrm/zipball/master">Download this project as a .zip file</a>
-              <a class="tar_download_link" href="https://github.com/manics/omero-pychrm/tarball/master">Download this project as a tar.gz file</a>
+              <a class="zip_download_link" href="https://github.com/manics/omero-wndcharm/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/manics/omero-wndcharm/tarball/master">Download this project as a tar.gz file</a>
             </section>
         </header>
     </div>
@@ -32,23 +32,23 @@
     <div id="main_content_wrap" class="outer">
       <section id="main_content" class="inner">
         <h1>
-<a name="omero-pychrm-beta" class="anchor" href="#omero-pychrm-beta"><span class="octicon octicon-link"></span></a>OMERO-pychrm (beta)</h1>
+<a name="omero-wndcharm-beta" class="anchor" href="#omero-wndcharm-beta"><span class="octicon octicon-link"></span></a>OMERO-wndcharm (beta)</h1>
 
-<p><a href="https://github.com/manics/omero-pychrm/">OMERO-pychrm</a> is a small Python library and set of scripts for using <a href="https://github.com/wnd-charm/wnd-charm">WND-CHARM</a> in <a href="http://www.openmicroscopy.org/">OMERO</a>.</p>
+<p><a href="https://github.com/manics/omero-wndcharm/">OMERO-wndcharm</a> is a small Python library and set of scripts for using <a href="https://github.com/wnd-charm/wnd-charm">WND-CHARM</a> in <a href="http://www.openmicroscopy.org/">OMERO</a>.</p>
 
 <p>WND-CHARM is a set of feature calculation and machine learning algorithms that is designed to work across a large variety of images.</p>
 
-<p>At present OMERO-pychrm should be considered beta quality. It is likely that the storage formats for features and schemas used for recording classification results and other metadata are likely to change.</p>
+<p>At present OMERO-wndcharm should be considered beta quality. It is likely that the storage formats for features and schemas used for recording classification results and other metadata are likely to change.</p>
 
 <h2>
 <a name="installation" class="anchor" href="#installation"><span class="octicon octicon-link"></span></a>Installation</h2>
 
-<p>See the <a href="https://github.com/manics/omero-pychrm/#omero-pychrm">README file</a>.</p>
+<p>See the <a href="https://github.com/manics/omero-wndcharm/#omero-wndcharm">README file</a>.</p>
 
 <h2>
-<a name="using-omero-pychrm" class="anchor" href="#using-omero-pychrm"><span class="octicon octicon-link"></span></a>Using OMERO-pychrm</h2>
+<a name="using-omero-wndcharm" class="anchor" href="#using-omero-wndcharm"><span class="octicon octicon-link"></span></a>Using OMERO-wndcharm</h2>
 
-<p>At present OMERO-pychrm is limited to supervised classification, where all images have the same number of channels.</p>
+<p>At present OMERO-wndcharm is limited to supervised classification, where all images have the same number of channels.</p>
 
 <ol>
 <li>
@@ -57,7 +57,7 @@
 <p><img src="images/01-train_and_test_datasets.png" alt="Train and test datasets"></p>
 </li>
 <li>
-<p>Calculate some features for the training project. Select the project, and load the <code>Pychrm Feature Extraction Multichannel</code> script. Accept the default parameters and click <code>Run Script</code>. Do the same for the testing set.</p>
+<p>Calculate some features for the training project. Select the project, and load the <code>Wndcharm Feature Extraction Multichannel</code> script. Accept the default parameters and click <code>Run Script</code>. Do the same for the testing set.</p>
 
 <p><img src="images/02-feature_menu.png" alt="Script menu, feature calculation"><img src="images/03-feature_dialog.png" alt="Feature calculation dialog"></p>
 </li>
@@ -72,7 +72,7 @@
 <p><img src="images/06-feature_table_attachment.png" alt="Features file attachment"></p>
 </li>
 <li>
-<p>Build the classifier. Select the training project, and load the <code>Pychrm Build Classifier</code> script. Accept the default parameters and click <code>Run Script</code>.</p>
+<p>Build the classifier. Select the training project, and load the <code>Wndcharm Build Classifier</code> script. Accept the default parameters and click <code>Run Script</code>.</p>
 
 <p><img src="images/07-build_classifier_menu.png" alt="Script menu, build classifier"><img src="images/08-build_classifier_dialog.png" alt="Build classifier dialog"></p>
 </li>
@@ -82,7 +82,7 @@
 <p><img src="images/09-classifer_table_attachments.png" alt="Classifier file attachments"></p>
 </li>
 <li>
-<p>You can test the classifier by predicting the class of the test images. Select the testing dataset, and load the <code>Pychrm Predict</code> script. You must fill in the <code>Training Project ID</code> with the ID of the project that the classifier is attached to. Click <code>Run Script</code>.</p>
+<p>You can test the classifier by predicting the class of the test images. Select the testing dataset, and load the <code>Wndcharm Predict</code> script. You must fill in the <code>Training Project ID</code> with the ID of the project that the classifier is attached to. Click <code>Run Script</code>.</p>
 
 <p><img src="images/10-predict_menu.png" alt="Script menu, prediction"><img src="images/11-predict_dialog.png" alt="Prediction dialog"></p>
 </li>
@@ -113,7 +113,7 @@
     <!-- FOOTER  -->
     <div id="footer_wrap" class="outer">
       <footer class="inner">
-        <p class="copyright">OMERO-pychrm (beta) maintained by <a href="https://github.com/manics">manics</a></p>
+        <p class="copyright">OMERO-wndcharm (beta) maintained by <a href="https://github.com/manics">manics</a></p>
         <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
       </footer>
     </div>
