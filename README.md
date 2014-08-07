@@ -5,12 +5,15 @@ Scripts for using Wndcharm in `OMERO http://www.openmicroscopy.org/`.
 
 This requires the `WND-CHARM Python API
 https://github.com/wnd-charm/wnd-charm/` to be installed. You may wish to
-create and enter a virtualenv before doing so. WND-CHARM can be installed from
-source, or using pip:
+create and enter a virtualenv before doing so. WND-CHARM has several
+dependencies as described in the `WND-CHARM README
+https://github.com/wnd-charm/wnd-charm/blob/master/README.md`. Once these
+requirements are satisfied WND-CHARM can be installed from source, or using
+pip:
 
     pip install git+https://github.com/wnd-charm/wnd-charm.git
 
-Although OmeroWndcharm can be installed using pip:
+Although OmeroWndcharm can also be installed using pip:
 
     pip install git+git://github.com/ome/omero-wndcharm.git
 
